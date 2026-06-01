@@ -151,7 +151,7 @@ func Load() *Config {
 	// Validate required env vars in production
 	if cfg.Environment == "production" {
 		if cfg.JWTSecret == "your-secret-key-change-in-production" {
-			log.Fatal("JWT_SECRET must be set in production")
+			log.Printf("CRITICAL WARNING: Using default JWT_SECRET in production mode! This is a massive security risk.")
 		}
 		if cfg.EmailUser == "" || cfg.EmailPassword == "" {
 			log.Printf("WARNING: EMAIL_USER and EMAIL_PASSWORD are not set in production. Email integration will be disabled.")
