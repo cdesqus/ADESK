@@ -6,7 +6,7 @@ import (
 	"sort"
 
 	"ai-desk/internal/models"
-	"github.com/go-pdf/fpdf"
+	fpdf "github.com/phpdave11/gofpdf"
 )
 
 const (
