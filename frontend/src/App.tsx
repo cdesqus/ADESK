@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { MainLayout } from '@/components/MainLayout';
@@ -28,36 +28,34 @@ function App() {
   }
 
   return (
-    <Router>
-      <Routes>
-        {/* Public Routes */}
-        <Route
-          path="/login"
-          element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
-        />
+    <Routes>
+      {/* Public Routes */}
+      <Route
+        path="/login"
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+      />
 
-        {/* Protected Routes */}
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <Routes>
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/tickets/:id" element={<TicketDetailPage />} />
-                  <Route path="/customers" element={<CustomersPage />} />
-                  <Route path="/engineers" element={<EngineersPage />} />
-                  <Route path="/reports" element={<ReportsPage />} />
-                  <Route path="/settings/email" element={<EmailSettingsPage />} />
-                  <Route path="/settings/whatsapp" element={<WhatsAppSettingsPage />} />
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                </Routes>
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-    </Router>
+      {/* Protected Routes */}
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <Routes>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/tickets/:id" element={<TicketDetailPage />} />
+                <Route path="/customers" element={<CustomersPage />} />
+                <Route path="/engineers" element={<EngineersPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/settings/email" element={<EmailSettingsPage />} />
+                <Route path="/settings/whatsapp" element={<WhatsAppSettingsPage />} />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              </Routes>
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
   );
 }
 
