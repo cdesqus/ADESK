@@ -1,0 +1,328 @@
+================================================================================
+AI-DESK PHASE 2 EMAIL INTEGRATION - QUICK START GUIDE
+================================================================================
+
+OBJECTIVE:
+Auto-create support tickets when customers email helpdesk@idesolusi.co.id
+with automatic domain-based customer categorization
+
+================================================================================
+STEP 1: ADD DEPENDENCIES
+================================================================================
+
+Run this command in the backend directory:
+
+  go get github.com/emersion/go-imap@v1.2.1
+  go get github.com/google/uuid@v1.5.0
+  go mod tidy
+
+Verify: go mod verify
+
+================================================================================
+STEP 2: CONFIGURE EMAIL SETTINGS
+================================================================================
+
+Copy .env file:
+  cp .env.example .env
+
+Edit .env with your email provider settings:
+
+FOR GMAIL:
+  EMAIL_IMAP_HOST=imap.gmail.com
+  EMAIL_IMAP_PORT=993
+  EMAIL_USER=helpdesk@idesolusi.co.id
+  EMAIL_PASSWORD=<16-digit app password from Google>
+  SMTP_HOST=smtp.gmail.com
+  SMTP_PORT=587
+  SMTP_USER=helpdesk@idesolusi.co.id
+  SMTP_PASSWORD=<same as EMAIL_PASSWORD>
+  EMAIL_FROM_NAME=IDE SOLUSI INTEGRASI Support
+  EMAIL_POLLING_INTERVAL=5m
+
+FOR OUTLOOK:
+  EMAIL_IMAP_HOST=outlook.office365.com
+  EMAIL_IMAP_PORT=993
+  EMAIL_USER=helpdesk@idesolusi.co.id
+  EMAIL_PASSWORD=<your outlook password>
+  SMTP_HOST=smtp.office365.com
+  SMTP_PORT=587
+  SMTP_USER=helpdesk@idesolusi.co.id
+  SMTP_PASSWORD=<same as EMAIL_PASSWORD>
+  EMAIL_FROM_NAME=IDE SOLUSI INTEGRASI Support
+  EMAIL_POLLING_INTERVAL=5m
+
+GOOGLE APP PASSWORD GENERATION:
+  1. Go to https://myaccount.google.com/apppasswords
+  2. Select "Mail" and "Windows Computer"
+  3. Google generates a 16-character password
+  4. Copy and paste into EMAIL_PASSWORD
+
+================================================================================
+STEP 3: SET CUSTOMER DOMAINS
+================================================================================
+
+Ensure all customers have domain field populated.
+
+Via Database:
+  UPDATE customers SET domain = 'mitsubishi.com' WHERE id = 1;
+  UPDATE customers SET domain = 'toyota.co.id' WHERE id = 2;
+  UPDATE customers SET domain = 'siemens.com' WHERE id = 3;
+
+Via API:
+  curl -X PUT http://localhost:8080/api/customers/1 \
+    -H "Authorization: Bearer <token>" \
+    -H "Content-Type: application/json" \
+    -d '{"domain": "mitsubishi.com"}'
+
+Check current domains:
+  SELECT id, name, domain FROM customers;
+
+================================================================================
+STEP 4: START APPLICATION
+================================================================================
+
+  go run ./cmd/main.go
+
+You should see in logs:
+  "Email poller started with interval 5m0s"
+  "[EmailPoller] Starting email polling cycle"
+
+If no log messages about email, check:
+  1. EMAIL_USER and EMAIL_PASSWORD are set in .env
+  2. Run: go mod tidy
+  3. Check for error messages in logs
+
+================================================================================
+STEP 5: TEST THE INTEGRATION
+================================================================================
+
+TEST A: Webhook Test (Immediate)
+
+  curl -X POST http://localhost:8080/api/email/webhook \
+    -H "Content-Type: application/json" \
+    -d '{
+      "from": "admin@mitsubishi.com",
+      "to": "helpdesk@idesolusi.co.id",
+      "subject": "Test Ticket",
+      "body": "This is a test email",
+      "message_id": "<test@example.com>"
+    }'
+
+Expected response:
+  {"ticket_id": 1, "status": "success", "message": "Ticket created from email"}
+
+Then check database:
+  SELECT * FROM tickets WHERE id = 1;
+
+TEST B: Real Email Test (Wait up to 5 minutes)
+
+  1. Send email to helpdesk@idesolusi.co.id from a customer domain
+  2. Wait up to 5 minutes (next polling cycle)
+  3. Check if ticket was auto-created:
+     SELECT * FROM tickets WHERE source = 'EMAIL' ORDER BY created_at DESC;
+  4. Check auto-reply received in your inbox
+  5. Check email log:
+     SELECT * FROM email_logs ORDER BY created_at DESC;
+
+TEST C: Check Processing Status
+
+  Database queries:
+
+  All email logs:
+    SELECT * FROM email_logs ORDER BY created_at DESC LIMIT 20;
+
+  Successful processes only:
+    SELECT * FROM email_logs WHERE status = 'SUCCESS' ORDER BY created_at DESC;
+
+  Unknown domains (potential new customers):
+    SELECT * FROM email_logs WHERE status = 'UNKNOWN_DOMAIN';
+
+  Failed processes with errors:
+    SELECT sender_email, error_message FROM email_logs WHERE status = 'FAILED';
+
+================================================================================
+HOW IT WORKS
+================================================================================
+
+1. EMAIL ARRIVES at helpdesk@idesolusi.co.id
+
+2. BACKGROUND JOB (every 5 minutes):
+   - Connects to IMAP server
+   - Fetches all unread emails
+   - For each email:
+     a. Parse email (headers, body, attachments metadata)
+     b. Extract sender's domain (admin@mitsubishi.com → mitsubishi.com)
+     c. Find matching customer by domain
+     d. Create ticket with matched customer_id
+     e. Send auto-reply email to sender
+     f. Mark email as read
+     g. Log processing result
+
+3. CUSTOMER RECEIVES AUTO-REPLY:
+   - From: helpdesk@idesolusi.co.id
+   - Subject: Re: [original subject]
+   - Body: Includes ticket ID (TK-123) and response time expectation
+
+4. ADMIN SEES TICKET:
+   - New ticket in dashboard
+   - Source: EMAIL
+   - Customer: Auto-matched by domain
+   - Email tracking via email_logs table
+
+================================================================================
+DOMAIN MATCHING LOGIC
+================================================================================
+
+The system matches email domains in this order:
+
+1. EXACT MATCH (case-insensitive)
+   Email from: admin@mitsubishi.com
+   Customer domain: mitsubishi.com
+   Result: MATCH
+
+2. SUBDOMAIN MATCH
+   Email from: support@asia.toyota.co.id
+   Customer domain: toyota.co.id
+   Result: MATCH (subdomain recognized)
+
+3. BASE DOMAIN MATCH
+   Email from: info@siemens.de
+   Customer domain: siemens.com
+   Result: MATCH (same base domain, different TLD)
+
+4. NO MATCH
+   Email from: unknown@example.com
+   Result: Creates ticket under "Unknown Customer"
+   (If "Unknown Customer" customer doesn't exist, creates it)
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+ISSUE: "Email poller not starting"
+SOLUTION:
+  1. Check .env has EMAIL_USER and EMAIL_PASSWORD
+  2. Verify database is running
+  3. Run: go mod tidy
+  4. Check application logs for error messages
+
+ISSUE: "Failed to connect IMAP"
+SOLUTION:
+  1. Verify email/password correct
+  2. Test IMAP connection: telnet imap.gmail.com 993
+  3. For Gmail, use app password (not regular password)
+  4. Check firewall isn't blocking port 993
+
+ISSUE: "Ticket created but wrong customer"
+SOLUTION:
+  1. Check customer.domain field is set: SELECT domain FROM customers;
+  2. Check email_logs for domain_matched value
+  3. Verify domain format (should be "mitsubishi.com" not "www.mitsubishi.com")
+
+ISSUE: "Auto-reply not sent"
+SOLUTION:
+  1. Check SMTP credentials are correct
+  2. Verify SMTP server connectivity: telnet smtp.gmail.com 587
+  3. Check logs for "Failed to send email" messages
+  4. Verify database has email_logs table
+
+ISSUE: "Email created with 'Unknown Customer'"
+SOLUTION:
+  1. Check which domains are creating unknowns:
+     SELECT domain_matched, COUNT(*) FROM email_logs
+     WHERE status = 'UNKNOWN_DOMAIN' GROUP BY domain_matched;
+  2. Add these domains to existing customers or create new customers
+
+================================================================================
+MONITORING
+================================================================================
+
+View real-time email logs:
+  SELECT created_at, sender_email, domain_matched, status FROM email_logs
+  WHERE created_at > NOW() - INTERVAL '1 hour'
+  ORDER BY created_at DESC;
+
+Count by status:
+  SELECT status, COUNT(*) as count FROM email_logs
+  GROUP BY status;
+
+Find failing senders:
+  SELECT sender_email, COUNT(*) as failures FROM email_logs
+  WHERE status = 'FAILED'
+  GROUP BY sender_email;
+
+Check tickets from email:
+  SELECT t.id, t.title, t.customer_id, el.sender_email, t.created_at
+  FROM tickets t
+  LEFT JOIN email_logs el ON el.ticket_id = t.id
+  WHERE t.source = 'EMAIL'
+  ORDER BY t.created_at DESC;
+
+================================================================================
+PRODUCTION DEPLOYMENT CHECKLIST
+================================================================================
+
+Before going live:
+[ ] Go dependencies installed: go mod verify
+[ ] Email credentials configured in .env
+[ ] All customer domains populated in database
+[ ] Database migrations run (automatic on startup)
+[ ] Webhook endpoint tested with test email
+[ ] Real email test completed (ticket created, auto-reply received)
+[ ] Email logs table verified: SELECT COUNT(*) FROM email_logs;
+[ ] Monitoring plan in place
+[ ] Backup strategy for email_logs
+[ ] SMTP/IMAP credentials working properly
+[ ] Auto-reply template customized if needed
+[ ] Polling interval set appropriately (5m for typical volume)
+
+Security:
+[ ] Use app-specific passwords (not regular passwords)
+[ ] Store credentials in .env, never hardcode
+[ ] Add authentication to webhook endpoint (JWT or API key)
+[ ] Use HTTPS for webhook in production
+[ ] Implement rate limiting on webhook
+[ ] Regular security updates for Go dependencies
+
+================================================================================
+KEY FILES REFERENCE
+================================================================================
+
+Email Integration Code:
+- D:\Demo\AI-DESK\backend\internal\email\imap.go        (IMAP client)
+- D:\Demo\AI-DESK\backend\internal\email\parser.go      (Email parsing)
+- D:\Demo\AI-DESK\backend\internal\email\matcher.go     (Domain matching)
+- D:\Demo\AI-DESK\backend\internal\email\sender.go      (SMTP/auto-reply)
+- D:\Demo\AI-DESK\backend\internal\handlers\email.go    (HTTP handler)
+- D:\Demo\AI-DESK\backend\internal\jobs\email_poller.go (Background job)
+
+Configuration:
+- D:\Demo\AI-DESK\backend\.env.example                  (Environment template)
+- D:\Demo\AI-DESK\backend\config\config.go              (Config loading)
+
+Database:
+- D:\Demo\AI-DESK\backend\internal\models\models.go     (EmailLog model)
+- D:\Demo\AI-DESK\backend\migrations\002_email_logs.sql (Migration)
+
+Documentation:
+- D:\Demo\AI-DESK\backend\EMAIL_INTEGRATION.md          (Full documentation)
+- D:\Demo\AI-DESK\backend\EMAIL_SETUP.md                (Detailed setup)
+- D:\Demo\AI-DESK\backend\QUICK_START_EMAIL.txt         (This file)
+
+================================================================================
+SUPPORT
+================================================================================
+
+For detailed documentation:
+  See EMAIL_INTEGRATION.md (complete technical reference)
+  See EMAIL_SETUP.md (step-by-step guide)
+
+For code examples:
+  See tests/email_integration_test.sh (testing examples)
+
+For dependency information:
+  See GO_DEPENDENCIES.txt (required Go packages)
+
+================================================================================
+END OF QUICK START GUIDE
+================================================================================

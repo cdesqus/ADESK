@@ -1,0 +1,235 @@
+PHASE 3 WHATSAPP INTEGRATION - DEPLOYMENT CHECKLIST
+====================================================
+
+PRE-DEPLOYMENT
+==============
+
+[ ] Review WHATSAPP_INTEGRATION.md for complete architecture overview
+[ ] Review PHASE3_SUMMARY.txt for implementation details
+[ ] Ensure Docker credentials are configured:
+    docker login -u devlikeapro -p dckr_pat_7ea_I2rTo7h-QsbJBM1NAl5kMp0
+
+[ ] Copy .env.example to .env and update values:
+    - WAHA_API_URL
+    - WAHA_API_PORT
+    - WAHA_WEBHOOK_URL
+    - Database credentials
+    - Email credentials (if needed)
+
+STARTUP VERIFICATION
+====================
+
+1. Database Migration
+   [ ] Run: docker-compose up
+   [ ] Verify postgres container starts
+   [ ] Confirm migrations run successfully
+   [ ] Check whatsapp_sessions table created
+   [ ] Check engineer_wa_phones table created
+   [ ] Check whatsapp_logs table created
+
+2. Waha Plus Service
+   [ ] Verify waha container starts
+   [ ] Check port 3000 is accessible
+   [ ] Verify no startup errors in logs
+   [ ] Test health endpoint: curl http://localhost:3000/api/health
+
+3. Backend Service
+   [ ] Verify app container starts
+   [ ] Check WhatsApp components initialized
+   [ ] Verify no import errors
+   [ ] Test health endpoint: curl http://localhost:8080/health
+
+4. Authentication
+   [ ] Generate JWT token for admin user
+   [ ] Store token for testing protected routes
+
+API ENDPOINT VERIFICATION
+=========================
+
+1. WhatsApp Session Creation
+   [ ] POST /api/whatsapp/sessions with valid JWT
+   [ ] Verify session created in database
+   [ ] Verify Waha Plus session created
+
+2. QR Code Retrieval
+   [ ] GET /api/whatsapp/sessions/{id}/qr with valid JWT
+   [ ] Verify base64 QR code returned
+   [ ] Scan QR code with WhatsApp phone
+
+3. Session Verification
+   [ ] POST /api/whatsapp/sessions/{id}/verify
+   [ ] Verify connection status updated
+   [ ] Check phone_number populated in database
+
+4. Engineer Phone Linking
+   [ ] POST /api/whatsapp/engineers/1/phone
+   [ ] Add phone number in format +62xxx
+   [ ] Verify engineer_wa_phones record created
+
+5. Message Webhook Testing
+   [ ] Configure Waha Plus webhook to: http://app:8080/api/whatsapp/webhook
+   [ ] Send test message from customer WhatsApp
+   [ ] Verify whatsapp_logs entry created
+   [ ] Check customer_id matched correctly
+
+MESSAGE PATTERN TESTING
+=======================
+
+Test each message pattern:
+
+1. Create Ticket Pattern
+   [ ] Send: "tolong buatin tiket test message from whatsapp"
+   [ ] Verify ticket created with source=WHATSAPP
+   [ ] Verify whatsapp_from populated
+   [ ] Check notification sent to engineer
+   [ ] Verify whatsapp_logs shows transaction
+
+2. Progress Update Pattern
+   [ ] Send: "TK-1 progress: investigating the issue"
+   [ ] Verify ticket status changed to IN_PROGRESS
+   [ ] Check notification sent to customer
+   [ ] Verify update comment added
+
+3. Close Ticket Pattern
+   [ ] Send: "TK-1 close: problem resolved"
+   [ ] Verify ticket status changed to RESOLVED
+   [ ] Check resolved_at timestamp set
+   [ ] Verify closure notification sent
+
+4. Status Check Pattern
+   [ ] Send: "status TK-1"
+   [ ] Verify status message returned
+   [ ] Check all ticket details included
+
+5. Reopen Ticket Pattern
+   [ ] Send: "TK-1 reopen"
+   [ ] Verify status changed to REOPENED
+   [ ] Check engineer notification sent
+   [ ] Verify update logged
+
+DATABASE VERIFICATION
+=====================
+
+1. WhatsApp Sessions Table
+   [ ] SELECT COUNT(*) FROM whatsapp_sessions
+   [ ] Verify status field updated correctly
+   [ ] Check qr_code populated for active sessions
+   [ ] Verify timestamps correct
+
+2. Engineer Phones Table
+   [ ] SELECT COUNT(*) FROM engineer_wa_phones
+   [ ] Verify engineer_id foreign key valid
+   [ ] Check is_active flags correct
+
+3. WhatsApp Logs Table
+   [ ] SELECT COUNT(*) FROM whatsapp_logs
+   [ ] Verify all message transactions logged
+   [ ] Check inbound/outbound direction accurate
+   [ ] Verify status field populated
+
+4. Tickets Table
+   [ ] SELECT * FROM tickets WHERE source='WHATSAPP'
+   [ ] Verify whatsapp_from populated
+   [ ] Check whatsapp_session_id linked
+   [ ] Confirm engineer_id assigned
+
+LOGS AND MONITORING
+===================
+
+1. Application Logs
+   [ ] Check docker-compose logs for errors
+   [ ] Verify WhatsApp initialization logs
+   [ ] Monitor message processing logs
+
+2. Database Logs
+   [ ] Query whatsapp_logs for activity
+   [ ] Check for failed messages
+   [ ] Monitor error_message field
+
+3. Waha Plus Logs
+   [ ] Monitor Waha container logs
+   [ ] Check webhook delivery success
+   [ ] Verify session status updates
+
+TROUBLESHOOTING
+===============
+
+If QR code not showing:
+  [ ] Verify Waha Plus service running
+  [ ] Check WAHA_API_URL setting
+  [ ] Confirm session_name unique
+  [ ] Review Waha logs for errors
+
+If messages not received:
+  [ ] Verify webhook URL in Waha config
+  [ ] Check firewall allows incoming webhooks
+  [ ] Test webhook endpoint manually
+  [ ] Review whatsapp_logs for entries
+
+If engineer notifications fail:
+  [ ] Verify engineer_wa_phones has entries
+  [ ] Check phone_number format correct
+  [ ] Confirm engineer is_active=true
+  [ ] Review message retry logs
+
+If database query fails:
+  [ ] Run migrations manually if needed
+  [ ] Check database connection parameters
+  [ ] Verify tables exist: \dt whatsapp_*
+  [ ] Check foreign key constraints
+
+PRODUCTION DEPLOYMENT
+====================
+
+1. Pre-Production Testing
+   [ ] Run all endpoint tests above
+   [ ] Load test message creation (100+ messages)
+   [ ] Test concurrent session access
+   [ ] Verify message ordering in logs
+
+2. Security Hardening
+   [ ] Enable HTTPS on webhook endpoint
+   [ ] Consider adding HMAC signature verification
+   [ ] Validate phone number format strictly
+   [ ] Implement rate limiting for webhooks
+   [ ] Review and rotate database passwords
+
+3. Backup and Recovery
+   [ ] Configure database backups
+   [ ] Test restore procedure
+   [ ] Setup log rotation for WhatsApp logs
+   [ ] Archive old message logs regularly
+
+4. Monitoring Setup
+   [ ] Configure alerts for failed messages
+   [ ] Monitor webhook delivery rate
+   [ ] Track session connection drops
+   [ ] Alert on high error rates
+
+5. Documentation Updates
+   [ ] Update API documentation with WhatsApp endpoints
+   [ ] Add WhatsApp message patterns to user guide
+   [ ] Document phone number format requirements
+   [ ] Create troubleshooting guide for support team
+
+ROLLBACK PLAN
+=============
+
+If deployment fails:
+
+1. Stop backend: docker-compose down
+2. Restore previous docker-compose.yml
+3. Downgrade database: DROP TABLE whatsapp_*
+4. Remove WhatsApp env vars
+5. Restart: docker-compose up
+6. Verify original functionality restored
+
+FILES TO PRESERVE
+=================
+
+After successful deployment, keep these for reference:
+- WHATSAPP_INTEGRATION.md (architecture/setup guide)
+- PHASE3_SUMMARY.txt (implementation details)
+- DEPLOYMENT_CHECKLIST.txt (this file)
+- .env.example (configuration template)
+- migrations/003_whatsapp.sql (schema definition)

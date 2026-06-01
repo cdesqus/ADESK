@@ -1,0 +1,111 @@
+Phase 2 Email Integration - Go Dependencies
+
+The following Go packages need to be added to go.mod for the email integration to work:
+
+REQUIRED PACKAGES:
+==================
+
+1. go-imap - IMAP client for reading emails
+   Module: github.com/emersion/go-imap
+   Version: v1.2.1
+   Command: go get github.com/emersion/go-imap@v1.2.1
+   Purpose: IMAP email fetching and management
+
+2. uuid - UUID generation for log entry IDs
+   Module: github.com/google/uuid
+   Version: v1.5.0
+   Command: go get github.com/google/uuid@v1.5.0
+   Purpose: Unique identifier generation for email logs
+
+INSTALLATION:
+=============
+
+Run one of the following:
+
+Option 1 - Using go get (recommended):
+  go get github.com/emersion/go-imap@v1.2.1
+  go get github.com/google/uuid@v1.5.0
+  go mod tidy
+
+Option 2 - Manual go.mod edit:
+  Add to go.mod require block:
+    github.com/emersion/go-imap v1.2.1
+    github.com/google/uuid v1.5.0
+
+  Then run:
+    go mod tidy
+
+VERIFICATION:
+=============
+
+After installation, verify with:
+  go mod verify
+
+Build the project:
+  go build ./cmd
+
+EXISTING DEPENDENCIES:
+=====================
+
+These dependencies are already included:
+
+- gin-gonic/gin v1.9.1 (HTTP framework)
+- golang-jwt/jwt/v5 v5.0.0 (JWT tokens)
+- gorm.io packages (database ORM)
+- joho/godotenv v1.5.1 (environment variables)
+- redis/go-redis/v9 v9.0.5 (caching)
+- golang.org/x/crypto v0.14.0 (password hashing)
+
+ADDITIONAL DEPENDENCIES (transitive):
+====================================
+
+The go-imap package will bring in these transitive dependencies:
+- golang.org/x/text (character encoding)
+- github.com/google/uuid (via direct dependency)
+
+These will be automatically resolved by go mod tidy.
+
+DOCKER BUILD:
+=============
+
+If building in Docker, ensure go.mod and go.sum are copied before running go mod download:
+
+Dockerfile snippet:
+  COPY go.mod go.sum ./
+  RUN go mod download
+  COPY . .
+  RUN go build -o app ./cmd
+
+TROUBLESHOOTING:
+================
+
+If you get "package not found" errors:
+
+1. Ensure go.mod is in the project root directory
+
+2. Run: go mod tidy
+
+3. Check go.mod shows:
+   require github.com/emersion/go-imap v1.2.1
+   require github.com/google/uuid v1.5.0
+
+4. Try: go mod download
+
+5. Verify: go list -m all | grep -E "imap|uuid"
+
+COMPATIBILITY:
+==============
+
+Go Version: 1.21 or higher
+Operating System: Linux, macOS, Windows
+GORM: v1.25.2 or higher
+
+All dependencies are compatible with existing codebase.
+
+NOTES:
+======
+
+- The email integration is fully backward compatible
+- If EMAIL_USER and EMAIL_PASSWORD are not set, email features are disabled gracefully
+- No breaking changes to existing models or handlers
+- All new code is isolated in internal/email and internal/jobs packages

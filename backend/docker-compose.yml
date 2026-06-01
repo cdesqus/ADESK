@@ -1,0 +1,93 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-desk-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-ai_desk}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-desk-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-desk-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-desk-network
+
+  waha:
+    image: devlikeapro/waha-plus:latest
+    container_name: ai-desk-waha
+    environment:
+      - WAHA_WEBHOOK_URL=http://app:8080/api/whatsapp/webhook
+      - WAHA_API_PORT=3000
+      - WAHA_LOG_LEVEL=info
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    networks:
+      - ai-desk-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-desk-app
+    environment:
+      SERVER_PORT: ${SERVER_PORT:-8080}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-ai_desk}
+      DB_SSL_MODE: ${DB_SSL_MODE:-disable}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      WAHA_API_URL: http://waha:3000
+      WAHA_API_PORT: 3000
+      WAHA_WEBHOOK_URL: http://app:8080/api/whatsapp/webhook
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      waha:
+        condition: service_started
+    networks:
+      - ai-desk-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  ai-desk-network:
+    driver: bridge

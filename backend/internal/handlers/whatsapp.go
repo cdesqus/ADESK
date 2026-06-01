@@ -1,0 +1,366 @@
+package handlers
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"strconv"
+	"time"
+
+	"ai-desk/internal/models"
+	"ai-desk/internal/whatsapp"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+type WhatsAppHandler struct {
+	db             *gorm.DB
+	wahaClient     *whatsapp.WahaClient
+	messageSender  *whatsapp.MessageSender
+	actionHandler  *whatsapp.ActionHandler
+}
+
+func NewWhatsAppHandler(
+	db *gorm.DB,
+	wahaClient *whatsapp.WahaClient,
+	messageSender *whatsapp.MessageSender,
+	actionHandler *whatsapp.ActionHandler,
+) *WhatsAppHandler {
+	return &WhatsAppHandler{
+		db:            db,
+		wahaClient:    wahaClient,
+		messageSender: messageSender,
+		actionHandler: actionHandler,
+	}
+}
+
+type CreateSessionRequest struct {
+	SessionName string `json:"session_name" binding:"required"`
+}
+
+type VerifySessionRequest struct {
+	SessionID string `json:"session_id" binding:"required"`
+}
+
+// POST /api/whatsapp/sessions
+func (h *WhatsAppHandler) CreateSession(c *gin.Context) {
+	var req CreateSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
+		return
+	}
+
+	// Check if session already exists
+	var existing models.WhatsAppSession
+	if err := h.db.Where("session_name = ?", req.SessionName).First(&existing).Error; err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "session already exists"})
+		return
+	}
+
+	// Create session in Waha Plus
+	if err := h.wahaClient.CreateSession(req.SessionName); err != nil {
+		log.Printf("Error creating Waha session: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session", "details": err.Error()})
+		return
+	}
+
+	// Save session to database
+	session := models.WhatsAppSession{
+		ID:          uuid.New().String(),
+		SessionName: req.SessionName,
+		Status:      "PENDING",
+		CreatedAt:   time.Now(),
+	}
+
+	if err := h.db.Create(&session).Error; err != nil {
+		log.Printf("Error saving session to database: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save session"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"id":            session.ID,
+		"session_name":  session.SessionName,
+		"status":        session.Status,
+		"created_at":    session.CreatedAt,
+	})
+}
+
+// GET /api/whatsapp/sessions/:id/qr
+func (h *WhatsAppHandler) GetSessionQR(c *gin.Context) {
+	sessionID := c.Param("id")
+
+	// Get session from database
+	var session models.WhatsAppSession
+	if err := h.db.First(&session, "id = ?", sessionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+		return
+	}
+
+	// Get QR code from Waha Plus
+	qrCode, err := h.wahaClient.GetSessionQR(session.SessionName)
+	if err != nil {
+		log.Printf("Error getting QR code: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get QR code", "details": err.Error()})
+		return
+	}
+
+	// Store QR code in database
+	session.QRCode = qrCode
+	h.db.Save(&session)
+
+	c.JSON(http.StatusOK, gin.H{
+		"qr_code": qrCode,
+	})
+}
+
+// POST /api/whatsapp/sessions/:id/verify
+func (h *WhatsAppHandler) VerifySession(c *gin.Context) {
+	sessionID := c.Param("id")
+
+	// Get session from database
+	var session models.WhatsAppSession
+	if err := h.db.First(&session, "id = ?", sessionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+		return
+	}
+
+	// Check status with Waha Plus
+	wahaSession, err := h.wahaClient.CheckSessionStatus(session.SessionName)
+	if err != nil {
+		log.Printf("Error checking session status: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check session", "details": err.Error()})
+		return
+	}
+
+	// Update database
+	if wahaSession.Connected {
+		session.Status = "CONNECTED"
+		session.PhoneNumber = wahaSession.PhoneNumber
+	} else {
+		session.Status = wahaSession.Status
+	}
+	h.db.Save(&session)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":        session.Status,
+		"phone_number":  session.PhoneNumber,
+		"connected":     wahaSession.Connected,
+	})
+}
+
+// DELETE /api/whatsapp/sessions/:id
+func (h *WhatsAppHandler) DeleteSession(c *gin.Context) {
+	sessionID := c.Param("id")
+
+	// Get session from database
+	var session models.WhatsAppSession
+	if err := h.db.First(&session, "id = ?", sessionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+		return
+	}
+
+	// Delete session from Waha Plus
+	if err := h.wahaClient.DeleteSession(session.SessionName); err != nil {
+		log.Printf("Error deleting Waha session: %v", err)
+	}
+
+	// Soft delete from database
+	now := time.Now()
+	session.DeletedAt = &now
+	h.db.Save(&session)
+
+	c.JSON(http.StatusOK, gin.H{"message": "session deleted"})
+}
+
+// GET /api/whatsapp/sessions
+func (h *WhatsAppHandler) GetSessions(c *gin.Context) {
+	var sessions []models.WhatsAppSession
+	if err := h.db.Where("deleted_at IS NULL").Find(&sessions).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch sessions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"sessions": sessions,
+		"count":    len(sessions),
+	})
+}
+
+// POST /api/whatsapp/webhook (from Waha Plus)
+func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
+	var payload whatsapp.WebhookPayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		log.Printf("Invalid webhook payload: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
+		return
+	}
+
+	log.Printf("Received WhatsApp webhook: event=%s session=%s", payload.Event, payload.Session)
+
+	// Only handle message events
+	if payload.Event != "message" {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		return
+	}
+
+	// Parse message event
+	var msgEvent whatsapp.MessageEvent
+	if err := json.Unmarshal(payload.Data, &msgEvent); err != nil {
+		log.Printf("Failed to parse message event: %v", err)
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		return
+	}
+
+	// Log the incoming message
+	h.logIncomingMessage(payload.Session, msgEvent)
+
+	// Parse message for actions
+	if msgEvent.Type == "text" {
+		action := whatsapp.ParseMessage(msgEvent.Body)
+		if action != nil {
+			go h.handleAction(payload.Session, msgEvent.From, action)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func (h *WhatsAppHandler) logIncomingMessage(sessionName string, msg whatsapp.MessageEvent) {
+	logEntry := models.WhatsAppLog{
+		ID:          uuid.New().String(),
+		SessionName: sessionName,
+		MessageID:   msg.ID,
+		FromPhone:   msg.From,
+		ToPhone:     msg.To,
+		Body:        msg.Body,
+		MessageType: msg.Type,
+		Direction:   "inbound",
+		Status:      "received",
+		CreatedAt:   time.Now(),
+	}
+
+	if err := h.db.Create(&logEntry).Error; err != nil {
+		log.Printf("Failed to log incoming message: %v", err)
+	}
+}
+
+func (h *WhatsAppHandler) handleAction(sessionName, fromPhone string, action *whatsapp.ParsedAction) {
+	switch action.ActionType {
+	case "create_ticket":
+		if err := h.actionHandler.HandleCreateTicket(sessionName, fromPhone, action.Content); err != nil {
+			log.Printf("Error handling create_ticket: %v", err)
+		}
+	case "update":
+		if err := h.actionHandler.HandleTicketUpdate(sessionName, fromPhone, action.TicketID, action.Content); err != nil {
+			log.Printf("Error handling update: %v", err)
+		}
+	case "close":
+		if err := h.actionHandler.HandleTicketClose(sessionName, fromPhone, action.TicketID, action.Content); err != nil {
+			log.Printf("Error handling close: %v", err)
+		}
+	case "reopen":
+		if err := h.actionHandler.HandleTicketReopen(sessionName, fromPhone, action.TicketID); err != nil {
+			log.Printf("Error handling reopen: %v", err)
+		}
+	case "status_check":
+		if err := h.actionHandler.HandleStatusCheck(sessionName, fromPhone, action.TicketID); err != nil {
+			log.Printf("Error handling status_check: %v", err)
+		}
+	}
+}
+
+// POST /api/whatsapp/engineers/:id/phone
+func (h *WhatsAppHandler) AddEngineerPhone(c *gin.Context) {
+	engineerID := c.Param("id")
+	engineerIDUint, err := strconv.ParseUint(engineerID, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid engineer id"})
+		return
+	}
+
+	var req struct {
+		PhoneNumber string `json:"phone_number" binding:"required"`
+		GroupID     string `json:"group_id"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	// Verify engineer exists
+	var engineer models.Engineer
+	if err := h.db.First(&engineer, engineerIDUint).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "engineer not found"})
+		return
+	}
+
+	// Create engineer phone record
+	engineerPhone := models.EngineerWAPhone{
+		ID:          uuid.New().String(),
+		EngineerID:  uint(engineerIDUint),
+		PhoneNumber: req.PhoneNumber,
+		GroupID:     req.GroupID,
+		IsActive:    true,
+		CreatedAt:   time.Now(),
+	}
+
+	if err := h.db.Create(&engineerPhone).Error; err != nil {
+		log.Printf("Error creating engineer phone: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save phone"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"id":            engineerPhone.ID,
+		"engineer_id":   engineerPhone.EngineerID,
+		"phone_number":  engineerPhone.PhoneNumber,
+		"is_active":     engineerPhone.IsActive,
+		"created_at":    engineerPhone.CreatedAt,
+	})
+}
+
+// GET /api/whatsapp/logs
+func (h *WhatsAppHandler) GetLogs(c *gin.Context) {
+	sessionName := c.Query("session_name")
+	direction := c.Query("direction")
+	page := c.DefaultQuery("page", "1")
+	limit := c.DefaultQuery("limit", "50")
+
+	pageNum, _ := strconv.Atoi(page)
+	limitNum, _ := strconv.Atoi(limit)
+	if pageNum < 1 {
+		pageNum = 1
+	}
+	if limitNum < 1 || limitNum > 100 {
+		limitNum = 50
+	}
+
+	var logs []models.WhatsAppLog
+	query := h.db
+
+	if sessionName != "" {
+		query = query.Where("session_name = ?", sessionName)
+	}
+	if direction != "" {
+		query = query.Where("direction = ?", direction)
+	}
+
+	if err := query.Order("created_at DESC").
+		Offset((pageNum - 1) * limitNum).
+		Limit(limitNum).
+		Find(&logs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch logs"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"logs":   logs,
+		"count":  len(logs),
+		"page":   pageNum,
+		"limit":  limitNum,
+	})
+}

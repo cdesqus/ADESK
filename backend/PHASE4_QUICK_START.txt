@@ -1,0 +1,311 @@
+PHASE 4 QUICK START GUIDE
+=========================
+
+SETUP
+=====
+
+1. Install Dependencies
+   $ cd D:\Demo\AI-DESK\backend
+   $ go get github.com/go-pdf/fpdf@v1.4.2
+   $ go get github.com/xuri/excelize/v2@v2.8.0
+   $ go get github.com/google/uuid@v1.5.0
+   $ go mod tidy
+
+2. Update .env Configuration
+   Add these to your .env file:
+
+   REPORT_GENERATION_TIME=08:00
+   REPORT_MONTH_DAY=1
+   SLA_HOURS=24
+   REPORT_RETENTION_DAYS=365
+
+   (Keep existing SMTP settings)
+
+3. Run Migrations
+   The migration runs automatically on startup via:
+   - internal/db/database.go: Migrate(db)
+
+   Or manually with PostgreSQL:
+   $ psql -U postgres -d ai_desk -f migrations/004_reports.sql
+
+4. Start Application
+   $ go run cmd/main.go
+
+   You should see in logs:
+   "Report scheduler started. Next run: [date/time]"
+
+TESTING
+=======
+
+1. Generate Report On-Demand
+   $ curl -X POST http://localhost:8080/api/reports/generate \
+     -H "Authorization: Bearer <your-jwt-token>" \
+     -H "Content-Type: application/json" \
+     -d '{"customer_id": 1, "month": 6, "year": 2026}'
+
+   Expected Response (HTTP 200):
+   {
+     "customer_name": "Test Company",
+     "month": "June 2026",
+     "month_num": 6,
+     "year": 2026,
+     "generated_at": "2026-06-01T10:30:00Z",
+     "metrics": { ... },
+     "tickets_list": [ ... ]
+   }
+
+2. List Reports
+   $ curl http://localhost:8080/api/reports \
+     -H "Authorization: Bearer <your-jwt-token>"
+
+   Expected Response (HTTP 200):
+   {
+     "data": [
+       {
+         "id": "uuid-string",
+         "customer_id": 1,
+         "month": 6,
+         "year": 2026,
+         "generated_at": "...",
+         "sent_at": null,
+         "sent_to_emails": []
+       }
+     ],
+     "total": 1,
+     "limit": 20,
+     "offset": 0
+   }
+
+3. Download PDF Report
+   $ curl http://localhost:8080/api/reports/<id>/download?format=pdf \
+     -H "Authorization: Bearer <your-jwt-token>" \
+     -o report.pdf
+
+   Expected: Binary PDF file with proper headers
+
+4. Download CSV Report
+   $ curl http://localhost:8080/api/reports/<id>/download?format=csv \
+     -H "Authorization: Bearer <your-jwt-token>" \
+     -o report.xlsx
+
+   Expected: Binary Excel file with proper headers
+
+5. Resend Report Email
+   $ curl -X POST http://localhost:8080/api/reports/<id>/resend \
+     -H "Authorization: Bearer <your-jwt-token>" \
+     -H "Content-Type: application/json" \
+     -d '{"email": "customer@example.com"}'
+
+   Expected Response (HTTP 200):
+   {"message": "Report email sent successfully"}
+
+MANUAL TESTING WORKFLOW
+======================
+
+Prerequisites:
+- PostgreSQL running with ai_desk database
+- Gmail or test SMTP server configured
+- JWT token for authentication
+
+Step 1: Create Test Data
+   POST /api/customers
+   {
+     "name": "Test Company",
+     "domain": "test.example.com",
+     "email_support": "support@test.example.com",
+     "is_active": true
+   }
+   Note the customer_id (should be 2)
+
+Step 2: Create Test Engineers
+   POST /api/engineers
+   {
+     "customer_id": 2,
+     "name": "John Doe",
+     "email": "john@example.com",
+     "is_active": true
+   }
+   Note the engineer_id
+
+Step 3: Create Test Tickets
+   POST /api/tickets
+   {
+     "customer_id": 2,
+     "engineer_id": <engineer_id>,
+     "title": "Test Issue",
+     "status": "OPEN",
+     "priority": "HIGH",
+     "source": "EMAIL"
+   }
+   Create 10-20 tickets with various statuses and priorities
+
+Step 4: Resolve Some Tickets
+   PUT /api/tickets/<ticket_id>
+   {
+     "status": "RESOLVED",
+     "resolved_at": "2026-05-15T10:00:00Z"
+   }
+   Resolve about half the tickets
+
+Step 5: Generate Report
+   POST /api/reports/generate
+   {
+     "customer_id": 2,
+     "month": 5,
+     "year": 2026
+   }
+
+Step 6: Verify Metrics
+   Check response has:
+   - TotalTickets: 10-20
+   - ResolvedTickets: ~50%
+   - OpenTickets: ~50%
+   - AverageResolutionTime: > 0
+   - SLACompliance: > 0
+   - ByStatus, ByPriority, BySource filled
+
+Step 7: Download Files
+   - Download PDF and verify formatting
+   - Download CSV and verify Excel structure
+   - Both should open in respective applications
+
+Step 8: Test Email Sending
+   Requires SMTP configured
+   POST /api/reports/<id>/resend
+   {"email": "test@example.com"}
+
+   Check email inbox for report
+
+DEBUGGING
+=========
+
+View Logs:
+   Scheduler logs:
+   "Report scheduler started"
+   "Starting monthly report generation..."
+   "Successfully generated report for customer..."
+
+   Failed reports:
+   "Failed to generate report for customer..."
+
+   Email logs:
+   "Email with attachments sent successfully to..."
+
+Common Issues:
+
+1. "customer not found"
+   - Verify customer_id exists in database
+   - Check PostgreSQL connection
+
+2. "failed to export CSV"
+   - Verify excelize dependency installed
+   - Check disk space
+
+3. "failed to export PDF"
+   - Verify fpdf dependency installed
+   - Check memory for large ticket lists
+
+4. "failed to send email"
+   - Verify SMTP credentials in .env
+   - Check SMTP host/port
+   - Verify email address is valid
+   - Check firewall allows SMTP
+
+5. Scheduler not running
+   - Check logs for "Report scheduler started"
+   - Verify REPORT_GENERATION_TIME format (HH:MM)
+   - Check timezone is correct
+
+PRODUCTION DEPLOYMENT
+====================
+
+1. Set Environment Variables
+   ENVIRONMENT=production
+   JWT_SECRET=<secure-random-key>
+   SMTP_USER=<actual-email>
+   SMTP_PASSWORD=<actual-password>
+   DB_PASSWORD=<actual-password>
+   SLA_HOURS=24  # or your SLA
+   REPORT_RETENTION_DAYS=365  # or retention policy
+
+2. Run Migrations
+   $ go run cmd/main.go
+   (Migrations run automatically on startup)
+
+3. Verify Scheduler
+   Check logs for:
+   "Report scheduler started. Next run: [date/time]"
+
+4. Test Report Generation
+   Make API call for previous month
+   Verify CSV/PDF download works
+
+5. Monitor Email Delivery
+   Watch logs for email sending
+   Verify customers receive reports on 1st of month
+
+6. Setup Log Rotation
+   Reports are logged to stdout
+   Setup logrotate or systemd journal
+
+MONITORING
+==========
+
+Key Metrics to Monitor:
+- Scheduler startup time
+- Report generation duration per customer
+- Email delivery success rate
+- PDF/CSV file sizes
+- Database query times
+- SMTP connection failures
+
+Logs to Watch:
+- "Report scheduler started"
+- "Starting monthly report generation"
+- "Failed to generate report"
+- "Email with attachments sent"
+- "failed to send email"
+
+Database Queries:
+SELECT COUNT(*) FROM monthly_reports;
+SELECT * FROM monthly_reports WHERE sent_at IS NULL;
+SELECT customer_id, COUNT(*) FROM monthly_reports GROUP BY customer_id;
+
+
+KEY FILES TO KNOW
+=================
+
+Internal Structure:
+- internal/reports/generator.go - Report calculations
+- internal/reports/csv.go - Excel export
+- internal/reports/pdf.go - PDF export
+- internal/reports/mailer.go - Email sending
+- internal/reports/repository.go - Database layer
+- internal/jobs/report_scheduler.go - Scheduling
+- internal/handlers/reports.go - API endpoints
+
+Configuration:
+- config/config.go - Load from .env
+- .env.example - Template
+
+Database:
+- migrations/004_reports.sql - Schema
+- internal/models/models.go - Go structs
+
+Entry Point:
+- cmd/main.go - Application startup
+
+HELP & DOCUMENTATION
+====================
+
+Full Documentation:
+- D:\Demo\AI-DESK\backend\PHASE4_REPORTS.md
+
+Implementation Details:
+- D:\Demo\AI-DESK\backend\PHASE4_IMPLEMENTATION_SUMMARY.txt
+
+File Manifest:
+- D:\Demo\AI-DESK\backend\PHASE4_FILES_MANIFEST.txt
+
+This Quick Start:
+- D:\Demo\AI-DESK\backend\PHASE4_QUICK_START.txt

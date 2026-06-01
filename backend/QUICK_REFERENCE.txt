@@ -1,0 +1,421 @@
+PHASE 3 WHATSAPP INTEGRATION - QUICK REFERENCE
+==============================================
+
+KEY GO PACKAGES
+===============
+
+internal/whatsapp/client.go
+  - WahaClient struct (baseURL, httpClient)
+  - NewWahaClient(baseURL) → *WahaClient
+  - Methods:
+    * CreateSession(name string) error
+    * GetSessionQR(sessionName) (string, error)
+    * SendMessage(sessionName, to, message) (string, error)
+    * GetSessions() ([]Session, error)
+    * DeleteSession(sessionName) error
+    * CheckSessionStatus(sessionName) (Session, error)
+
+internal/whatsapp/parser.go
+  - ParseMessage(body string) *ParsedAction
+  - Patterns:
+    * "tolong buatin tiket ..." → create_ticket
+    * "TK-xxx progress: ..." → update
+    * "TK-xxx close: ..." → close
+    * "TK-xxx reopen" → reopen
+    * "status TK-xxx" → status_check
+
+internal/whatsapp/sender.go
+  - MessageSender struct (client, db)
+  - NewMessageSender(client, db) → *MessageSender
+  - SendMessage(sessionName, phone, message) error
+  - SendGroupMessage(sessionName, groupID, message) error
+  - Automatic retry: 3 attempts with exponential backoff
+
+internal/whatsapp/actions.go
+  - ActionHandler struct (db, messageSender, wahaClient)
+  - NewActionHandler(db, sender, client) → *ActionHandler
+  - HandleCreateTicket(sessionName, fromPhone, content) error
+  - HandleTicketUpdate(sessionName, fromPhone, ticketID, content) error
+  - HandleTicketClose(sessionName, fromPhone, ticketID, content) error
+  - HandleTicketReopen(sessionName, fromPhone, ticketID) error
+  - HandleStatusCheck(sessionName, fromPhone, ticketID) error
+
+internal/handlers/whatsapp.go
+  - WhatsAppHandler struct (db, wahaClient, messageSender, actionHandler)
+  - NewWhatsAppHandler(db, client, sender, handler) → *WhatsAppHandler
+  - CreateSession(c *gin.Context)
+  - GetSessions(c *gin.Context)
+  - GetSessionQR(c *gin.Context)
+  - VerifySession(c *gin.Context)
+  - DeleteSession(c *gin.Context)
+  - ProcessWebhook(c *gin.Context)
+  - AddEngineerPhone(c *gin.Context)
+  - GetLogs(c *gin.Context)
+
+INITIALIZATION CODE (cmd/main.go)
+==================================
+
+import "ai-desk/internal/whatsapp"
+
+// Create WhatsApp client
+wahaClient := whatsapp.NewWahaClient(cfg.WahaAPIURL)
+
+// Create message sender
+messageSender := whatsapp.NewMessageSender(wahaClient, database)
+
+// Create action handler
+actionHandler := whatsapp.NewActionHandler(database, messageSender, wahaClient)
+
+// Create HTTP handler
+whatsappHandler := handlers.NewWhatsAppHandler(
+    database,
+    wahaClient,
+    messageSender,
+    actionHandler,
+)
+
+// Setup routes (in setupRoutes function)
+whatsappWebhook := router.Group("/api/whatsapp")
+{
+    whatsappWebhook.POST("/webhook", whatsappHandler.ProcessWebhook)
+}
+
+whatsappProtected := protected.Group("/whatsapp")
+{
+    whatsappProtected.POST("/sessions", whatsappHandler.CreateSession)
+    whatsappProtected.GET("/sessions", whatsappHandler.GetSessions)
+    whatsappProtected.GET("/sessions/:id/qr", whatsappHandler.GetSessionQR)
+    whatsappProtected.POST("/sessions/:id/verify", whatsappHandler.VerifySession)
+    whatsappProtected.DELETE("/sessions/:id", whatsappHandler.DeleteSession)
+    whatsappProtected.POST("/engineers/:id/phone", whatsappHandler.AddEngineerPhone)
+    whatsappProtected.GET("/logs", whatsappHandler.GetLogs)
+}
+
+DATABASE MIGRATIONS
+===================
+
+Three new tables created by migrations/003_whatsapp.sql:
+
+1. whatsapp_sessions
+   CREATE TABLE whatsapp_sessions (
+       id VARCHAR(36) PRIMARY KEY,
+       session_name VARCHAR(255) UNIQUE NOT NULL,
+       phone_number VARCHAR(20),
+       status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+       qr_code TEXT,
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       deleted_at TIMESTAMP NULL
+   );
+
+2. engineer_wa_phones
+   CREATE TABLE engineer_wa_phones (
+       id VARCHAR(36) PRIMARY KEY,
+       engineer_id INTEGER NOT NULL,
+       phone_number VARCHAR(20) NOT NULL,
+       group_id VARCHAR(255),
+       is_active BOOLEAN DEFAULT true,
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       deleted_at TIMESTAMP NULL,
+       CONSTRAINT fk_engineer_wa_phones FOREIGN KEY (engineer_id) REFERENCES engineers(id)
+   );
+
+3. whatsapp_logs
+   CREATE TABLE whatsapp_logs (
+       id VARCHAR(36) PRIMARY KEY,
+       session_name VARCHAR(255) NOT NULL,
+       message_id VARCHAR(255),
+       from_phone VARCHAR(20) NOT NULL,
+       to_phone VARCHAR(20),
+       body TEXT,
+       message_type VARCHAR(50),
+       direction VARCHAR(20),
+       status VARCHAR(50),
+       customer_id INTEGER,
+       ticket_id INTEGER,
+       error_message TEXT,
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       CONSTRAINT fk_whatsapp_logs_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
+       CONSTRAINT fk_whatsapp_logs_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id)
+   );
+
+MODEL DEFINITIONS
+=================
+
+WhatsAppSession
+  - ID: string (uuid)
+  - SessionName: string (unique)
+  - PhoneNumber: string
+  - Status: string (PENDING, CONNECTED, DISCONNECTED)
+  - QRCode: string (base64)
+  - CreatedAt, UpdatedAt, DeletedAt: timestamps
+
+EngineerWAPhone
+  - ID: string (uuid)
+  - EngineerID: uint (foreign key)
+  - PhoneNumber: string
+  - GroupID: string (optional)
+  - IsActive: bool
+  - CreatedAt, UpdatedAt, DeletedAt: timestamps
+
+WhatsAppLog
+  - ID: string (uuid)
+  - SessionName: string
+  - MessageID: string
+  - FromPhone: string
+  - ToPhone: string
+  - Body: string (text)
+  - MessageType: string
+  - Direction: string (inbound/outbound)
+  - Status: string
+  - CustomerID: *uint
+  - TicketID: *uint
+  - ErrorMessage: string
+  - CreatedAt, UpdatedAt: timestamps
+
+Ticket (updated fields)
+  - WhatsappFrom: string
+  - WhatsappSessionID: string
+
+ENVIRONMENT VARIABLES
+====================
+
+WAHA_API_URL=http://waha:3000
+WAHA_API_PORT=3000
+WAHA_WEBHOOK_URL=http://app:8080/api/whatsapp/webhook
+
+DOCKER CONFIGURATION
+====================
+
+service waha:
+  image: devlikeapro/waha-plus:latest
+  container_name: ai-desk-waha
+  environment:
+    - WAHA_WEBHOOK_URL=http://app:8080/api/whatsapp/webhook
+    - WAHA_API_PORT=3000
+    - WAHA_LOG_LEVEL=info
+  ports:
+    - "3000:3000"
+  depends_on:
+    - postgres
+  networks:
+    - ai-desk-network
+
+service app:
+  # ... existing config ...
+  environment:
+    # ... existing env vars ...
+    - WAHA_API_URL=http://waha:3000
+    - WAHA_API_PORT=3000
+    - WAHA_WEBHOOK_URL=http://app:8080/api/whatsapp/webhook
+  depends_on:
+    # ... existing depends_on ...
+    waha:
+      condition: service_started
+
+API EXAMPLES
+============
+
+Create Session:
+POST /api/whatsapp/sessions
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "session_name": "support_team"
+}
+
+Response:
+{
+  "id": "uuid",
+  "session_name": "support_team",
+  "status": "PENDING",
+  "created_at": "2024-01-01T00:00:00Z"
+}
+
+Get QR Code:
+GET /api/whatsapp/sessions/{id}/qr
+Authorization: Bearer <jwt_token>
+
+Response:
+{
+  "qr_code": "base64-encoded-png-data"
+}
+
+Verify Session:
+POST /api/whatsapp/sessions/{id}/verify
+Authorization: Bearer <jwt_token>
+
+Response:
+{
+  "status": "CONNECTED",
+  "phone_number": "+62812345678",
+  "connected": true
+}
+
+Add Engineer Phone:
+POST /api/whatsapp/engineers/1/phone
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "phone_number": "+62812345678",
+  "group_id": "engineer_group@g.us"
+}
+
+Get Logs:
+GET /api/whatsapp/logs?session_name=support_team&direction=inbound&page=1&limit=50
+Authorization: Bearer <jwt_token>
+
+Response:
+{
+  "logs": [...],
+  "count": 25,
+  "page": 1,
+  "limit": 50
+}
+
+MESSAGE FLOW EXAMPLE
+====================
+
+1. Customer sends message:
+   "tolong buatin tiket database error"
+
+2. Webhook received: /api/whatsapp/webhook
+   {
+     "event": "message",
+     "session": "support_team",
+     "data": {
+       "id": "msg_id",
+       "from": "+62812345678",
+       "to": "120363...",
+       "body": "tolong buatin tiket database error",
+       "type": "text",
+       "timestamp": 1704067200
+     }
+   }
+
+3. ProcessWebhook() called
+   - Log message to whatsapp_logs table
+   - ParseMessage() extracts action: create_ticket
+   - HandleCreateTicket() invoked
+
+4. HandleCreateTicket() execution:
+   - Find customer by phone
+   - Create ticket (OPEN, MEDIUM priority)
+   - Assign engineer (round-robin)
+   - Log "TK-123 created" to database
+   - Send confirmation to customer
+   - Send notification to engineer
+   - Return 200 OK to webhook
+
+5. Database state:
+   - tickets: new row with source=WHATSAPP
+   - whatsapp_logs: inbound message logged
+   - updates: auto-comment added
+   - engineer_wa_phones: engineer notified
+
+ERROR HANDLING
+==============
+
+Message Send Failure:
+  - Attempt 1: wait 2 seconds
+  - Attempt 2: wait 4 seconds
+  - Attempt 3: fail
+  - Log to whatsapp_logs with status=failed
+  - Mark with error_message
+
+Engineer Authorization:
+  - Check engineer_wa_phones for phone match
+  - Return error if not found
+  - Send permission denied to sender
+
+Phone Lookup Failure:
+  - Try engineer_wa_phones first
+  - Fall back to first active customer
+  - Return error if no customer found
+  - Send error message to customer
+
+Pattern Not Matched:
+  - No action taken
+  - Message still logged
+  - No ticket created
+  - No notification sent
+
+DATABASE CONSTRAINTS
+====================
+
+whatsapp_sessions:
+  - session_name UNIQUE (only one per name)
+  - Soft delete via deleted_at
+
+engineer_wa_phones:
+  - engineer_id NOT NULL (required)
+  - CASCADE delete with engineer
+  - is_active flag for quick filtering
+
+whatsapp_logs:
+  - customer_id nullable (unknown customers)
+  - ticket_id nullable (messages without action)
+  - SET NULL on customer/ticket delete
+
+tickets:
+  - whatsapp_from VARCHAR(20) for phone number
+  - whatsapp_session_id VARCHAR(255) for session link
+  - source='WHATSAPP' for filtering
+
+LOGGING FORMAT
+==============
+
+All timestamps in UTC, ISO 8601 format
+WhatsApp logs stored in whatsapp_logs table with:
+  - id: unique message identifier
+  - session_name: which Waha session
+  - message_id: Waha Plus message ID
+  - direction: "inbound" or "outbound"
+  - status: "received", "delivered", "read", "failed"
+  - created_at: when message processed
+  - customer_id: linked customer (if found)
+  - ticket_id: linked ticket (if action matched)
+  - error_message: if status="failed"
+
+QUEUE AND CONCURRENCY
+====================
+
+Message processing is asynchronous:
+  - Webhook returns 200 immediately
+  - Action handling runs in goroutine
+  - Database updates happen in handler
+  - Retry logic in sender handles failures
+  - Notification messages queued separately
+
+Thread Safety:
+  - GORM handles concurrent DB writes
+  - No locking required (timestamps ensure order)
+  - Message_id prevents duplicate processing
+
+TESTING CHECKLIST
+=================
+
+Unit Tests Needed:
+  [ ] ParseMessage() regex patterns
+  [ ] WahaClient API methods
+  [ ] MessageSender retry logic
+  [ ] ActionHandler business logic
+  [ ] Database foreign key constraints
+
+Integration Tests Needed:
+  [ ] Full message flow (webhook to ticket)
+  [ ] Engineer authorization
+  [ ] Phone number matching
+  [ ] Retry after failure
+  [ ] Concurrent messages
+
+E2E Tests Needed:
+  [ ] Create session and scan QR
+  [ ] Send real WhatsApp message
+  [ ] Verify ticket created
+  [ ] Verify notifications sent
+  [ ] Verify logs recorded

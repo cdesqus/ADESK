@@ -1,0 +1,458 @@
+================================================================================
+AI-DESK BACKEND - PHASE 2 EMAIL INTEGRATION IMPLEMENTATION
+Complete Email Processing with Domain-Based Auto-Categorization
+================================================================================
+
+PROJECT LOCATION: D:\Demo\AI-DESK\backend\
+
+================================================================================
+COMPLETE PROJECT STRUCTURE
+================================================================================
+
+ai-desk/backend/
+├── cmd/
+│   └── main.go                          # Application entry point
+├── internal/
+│   ├── db/
+│   │   └── database.go                  # Database initialization & migrations
+│   ├── handlers/
+│   │   ├── auth.go                      # Authentication (login, JWT generation)
+│   │   ├── customers.go                 # Customer CRUD handlers
+│   │   ├── engineers.go                 # Engineer CRUD handlers
+│   │   ├── tickets.go                   # Ticket CRUD handlers with filters
+│   │   └── updates.go                   # Ticket updates/comments handlers
+│   ├── middleware/
+│   │   ├── auth.go                      # JWT authentication & role-based access
+│   │   └── error.go                     # Centralized error handling
+│   └── models/
+│       └── models.go                    # All data models (GORM)
+├── config/
+│   └── config.go                        # Configuration management from env vars
+├── migrations/
+│   └── 001_init.sql                     # PostgreSQL schema with indexes
+├── go.mod                               # Module definition & dependencies
+├── go.sum                               # Dependency checksums
+├── Dockerfile                           # Docker image build configuration
+├── docker-compose.yml                   # Multi-service orchestration
+├── .env.example                         # Environment variables template
+├── .gitignore                           # Git ignore rules
+└── DEPLOYMENT.md                        # Deployment & setup guide
+
+================================================================================
+PHASE 2 IMPLEMENTATION - FILES ADDED & MODIFIED
+================================================================================
+
+NEW PACKAGES & FILES CREATED:
+
+1. EMAIL PACKAGE (internal/email/)
+   - types.go          # Core data structures (EmailMessage, DomainMatchResult, etc.)
+   - imap.go           # IMAP client for email retrieval (~140 lines)
+   - parser.go         # Email parsing from IMAP format (~250 lines)
+   - matcher.go        # Domain-based customer matching (~150 lines)
+   - sender.go         # SMTP client for auto-replies (~100 lines)
+   - init.go           # Email component initialization (~60 lines)
+
+2. HANDLERS PACKAGE ENHANCEMENT
+   - email.go          # HTTP handler for email webhook (~180 lines)
+
+3. JOBS PACKAGE (internal/jobs/)
+   - email_poller.go   # Background email polling job (~220 lines)
+
+4. MIGRATIONS
+   - 002_email_logs.sql # Email processing logs table
+
+5. DOCUMENTATION
+   - EMAIL_INTEGRATION.md  # Technical documentation (~500 lines)
+   - EMAIL_SETUP.md        # Setup guide (~400 lines)
+   - GO_DEPENDENCIES.txt   # Dependency requirements
+   - tests/email_integration_test.sh # Testing script
+
+FILES MODIFIED:
+
+1. internal/models/models.go
+   - Added EmailLog model for logging email processing
+   - Added email_message_id to Ticket model
+
+2. internal/db/database.go
+   - Added EmailLog to AutoMigrate
+
+3. config/config.go
+   - Added email IMAP/SMTP configuration fields
+   - Added polling interval configuration
+
+4. cmd/main.go
+   - Added email component initialization
+   - Added email poller startup
+   - Added graceful shutdown handling
+
+5. .env.example
+   - Added email configuration variables
+
+IMPLEMENTED FEATURES - PHASE 2
+================================================================================
+
+1. IMAP EMAIL SERVICE (internal/email/imap.go)
+   - TLS connection to IMAP server
+   - Fetch unread emails from INBOX
+   - Mark emails as read after processing
+   - Automatic reconnection on failure
+   - Full error handling
+
+2. EMAIL PARSER (internal/email/parser.go)
+   - Parse IMAP messages to structured format
+   - Extract headers (From, To, Subject, Date, Message-ID)
+   - Multipart MIME email support
+   - Text and HTML body extraction
+   - Attachment metadata extraction (no file storage)
+   - HTML stripping for clean text
+   - Email validation
+
+3. DOMAIN MATCHER (internal/email/matcher.go)
+   - Extract domain from sender email
+   - Exact domain matching (case-insensitive)
+   - Subdomain matching (admin@sub.domain.com → domain.com)
+   - Base domain matching (different TLDs)
+   - Support for various domain formats
+   - Unknown domain fallback
+
+4. AUTO-CREATE TICKET HANDLER (internal/handlers/email.go)
+   - POST /api/email/webhook endpoint
+   - Parse email data
+   - Match sender domain to customer
+   - Create ticket with matched customer_id
+   - Log all processing attempts
+   - Send auto-reply emails
+
+5. AUTO-REPLY SERVICE (internal/email/sender.go)
+   - SMTP email sending with TLS
+   - Auto-reply template generation
+   - Include ticket ID in reply
+   - Formatted HTML/text emails
+   - Non-blocking error handling
+
+6. BACKGROUND EMAIL POLLER (internal/jobs/email_poller.go)
+   - Goroutine-based polling
+   - Configurable interval (default 5 minutes)
+   - Automatic reconnection
+   - Graceful shutdown support
+   - Detailed logging of all actions
+   - Continues on individual email failure
+
+7. EMAIL LOGGING (EmailLog model)
+   - Track all email processing
+   - Status: SUCCESS, FAILED, UNKNOWN_DOMAIN
+   - Store error messages
+   - Link to customer and ticket
+   - Timestamps for auditing
+
+ORIGINAL PHASE 1 FEATURES (PRESERVED)
+================================================================================
+
+1. DATA MODELS (models/models.go)
+   - User: Admin, support, engineer, viewer roles
+   - Customer: Organization with multiple engineers and tickets
+   - Engineer: Support team member with skills array
+   - Ticket: Support ticket with full lifecycle
+   - Update: Comments and status changes on tickets
+
+2. DATABASE (internal/db/database.go + migrations/001_init.sql)
+   - PostgreSQL 16 with GORM ORM
+   - Automatic migrations on startup
+   - Connection pooling (10 idle, 100 max open)
+   - Foreign keys with cascade/set null
+   - Comprehensive indexes for query optimization
+   - Soft deletes (deleted_at) for all models
+
+3. AUTHENTICATION (internal/handlers/auth.go + internal/middleware/auth.go)
+   - POST /api/auth/login - Returns JWT token (24h expiry)
+   - Password hashing with bcrypt
+   - JWT middleware for protected routes
+   - Role-based access control (ADMIN, SUPPORT, ENGINEER, VIEWER)
+   - Context-based user tracking
+
+4. API ENDPOINTS (Complete CRUD)
+
+   CUSTOMERS:
+   - POST   /api/customers              - Create customer
+   - GET    /api/customers              - List with pagination
+   - GET    /api/customers/:id          - Get with engineers & tickets
+   - PUT    /api/customers/:id          - Update customer
+   - DELETE /api/customers/:id          - Soft delete
+
+   ENGINEERS:
+   - POST   /api/engineers              - Create engineer
+   - GET    /api/engineers              - List with filters (customer_id, is_active)
+   - GET    /api/engineers/:id          - Get with tickets & updates
+   - PUT    /api/engineers/:id          - Update engineer
+   - DELETE /api/engineers/:id          - Soft delete
+
+   TICKETS:
+   - POST   /api/tickets                - Create ticket
+   - GET    /api/tickets                - List with filters (customer_id, status, priority, engineer_id)
+   - GET    /api/tickets/:id            - Get with engineer & updates
+   - PUT    /api/tickets/:id            - Update ticket (status, priority, assignment, resolved_at)
+   - DELETE /api/tickets/:id            - Soft delete
+
+   UPDATES/COMMENTS:
+   - POST   /api/tickets/:ticket_id/updates   - Add comment/update to ticket
+   - GET    /api/tickets/:ticket_id/updates   - List updates with pagination
+   - DELETE /api/updates/:id                  - Delete update
+
+5. ERROR HANDLING
+   - Structured error responses
+   - Input validation on all endpoints
+   - SQL injection prevention via parameterized queries
+   - Graceful error propagation
+   - Type-safe GORM operations
+
+6. CONFIGURATION (config/config.go)
+   - Environment-based configuration
+   - .env file support via godotenv
+   - Sensible defaults for development
+   - Production validation (e.g., JWT_SECRET requirement)
+
+7. DOCKER SETUP
+   - PostgreSQL 16 service
+   - Redis 7 service (for future caching)
+   - Go application service
+   - Health checks for all services
+   - Volume persistence for data
+   - Network isolation
+
+================================================================================
+TECHNOLOGY STACK
+================================================================================
+
+Core Framework:    Gin Web Framework (gin-gonic/gin v1.9.1)
+ORM:               GORM 1.25.2 with PostgreSQL driver
+Authentication:    JWT (golang-jwt/jwt v5.0.0), bcrypt
+Database:          PostgreSQL 16
+Cache:             Redis 7
+Environment:       godotenv
+Language:          Go 1.21+
+Container:         Docker & Docker Compose
+
+================================================================================
+SECURITY FEATURES
+================================================================================
+
+✓ JWT-based authentication with 24-hour expiration
+✓ Password hashing with bcrypt (cost factor 10)
+✓ Role-based access control (RBAC)
+✓ SQL injection prevention via GORM parameterized queries
+✓ CORS middleware with proper headers
+✓ Soft deletes for data retention compliance
+✓ Secure password validation
+✓ Environment variable management for secrets
+✓ Connection pooling for resource efficiency
+✓ Input validation on all endpoints
+
+================================================================================
+QUICK START GUIDE
+================================================================================
+
+1. DOCKER COMPOSE (Recommended):
+
+   $ cd D:\Demo\AI-DESK\backend
+   $ cp .env.example .env
+   $ docker-compose up -d
+   $ curl http://localhost:8080/health
+
+2. LOCAL DEVELOPMENT:
+
+   $ go mod download
+   $ go run ./cmd/main.go
+
+3. FIRST LOGIN:
+
+   Email:    admin@aidesK.local
+   Password: admin123
+
+   Request:
+   POST /api/auth/login
+   {
+     "email": "admin@aidesK.local",
+     "password": "admin123"
+   }
+
+   Response:
+   {
+     "token": "eyJhbGciOiJIUzI1NiIs...",
+     "user_id": 1,
+     "email": "admin@aidesK.local",
+     "role": "ADMIN",
+     "expires_at": 1234567890
+   }
+
+4. USE TOKEN IN REQUESTS:
+
+   Authorization: Bearer <token>
+
+================================================================================
+ENVIRONMENT VARIABLES
+================================================================================
+
+SERVER_PORT=8080                              # API server port
+ENVIRONMENT=development                       # development or production
+DB_HOST=localhost                            # PostgreSQL host
+DB_PORT=5432                                 # PostgreSQL port
+DB_USER=postgres                             # PostgreSQL user
+DB_PASSWORD=postgres                         # PostgreSQL password
+DB_NAME=ai_desk                              # Database name
+DB_SSL_MODE=disable                          # disable/require for SSL
+REDIS_HOST=localhost                         # Redis host
+REDIS_PORT=6379                              # Redis port
+JWT_SECRET=your-secret-key-...              # Secret for JWT signing (required in production)
+
+================================================================================
+DATABASE SCHEMA
+================================================================================
+
+USERS table:
+- id (PK)
+- email (unique)
+- password (hashed)
+- role (ADMIN, SUPPORT, ENGINEER, VIEWER)
+- created_at, updated_at, deleted_at
+
+CUSTOMERS table:
+- id (PK)
+- name
+- domain (unique)
+- email_support
+- is_active
+- created_at, updated_at, deleted_at
+
+ENGINEERS table:
+- id (PK)
+- customer_id (FK)
+- name
+- email
+- whatsapp_number
+- skills (JSONB array)
+- is_active
+- created_at, updated_at, deleted_at
+
+TICKETS table:
+- id (PK)
+- customer_id (FK)
+- engineer_id (FK, nullable)
+- title
+- description
+- status (OPEN, IN_PROGRESS, RESOLVED, CLOSED)
+- priority (LOW, MEDIUM, HIGH, URGENT)
+- category
+- source (EMAIL, CHAT, PHONE, WEB)
+- email_from
+- created_at, updated_at, resolved_at, deleted_at
+
+UPDATES table:
+- id (PK)
+- ticket_id (FK)
+- engineer_id (FK, nullable)
+- message
+- action_type (COMMENT, STATUS_CHANGE, ASSIGNED, REOPENED)
+- created_at, updated_at, deleted_at
+
+================================================================================
+PRODUCTION READINESS CHECKLIST
+================================================================================
+
+✓ Proper error handling throughout
+✓ Input validation on all endpoints
+✓ SQL injection protection via GORM
+✓ Connection pooling configured
+✓ Graceful shutdown support
+✓ Structured logging
+✓ Environment-based configuration
+✓ Role-based access control
+✓ JWT authentication
+✓ Password hashing (bcrypt)
+✓ Soft deletes for compliance
+✓ Comprehensive indexes
+✓ Foreign key constraints
+✓ Docker containerization
+✓ Health check endpoint
+✓ CORS support
+✓ Pagination support
+✓ Filter support for complex queries
+✓ Automatic migrations
+✓ Development seed data
+
+================================================================================
+NEXT STEPS (PHASE 2)
+================================================================================
+
+1. Email integration (ticket notifications)
+2. WebSocket support for real-time updates
+3. File attachment handling
+4. Advanced search/analytics
+5. Integration with email systems (IMAP/SMTP)
+6. Rate limiting
+7. Request logging/audit trail
+8. Caching layer with Redis
+9. Batch operations
+10. Export functionality (CSV/PDF)
+
+================================================================================
+FILE PATHS REFERENCE
+================================================================================
+
+Main Application:         D:\Demo\AI-DESK\backend\cmd\main.go
+Database Connection:      D:\Demo\AI-DESK\backend\internal\db\database.go
+Data Models:             D:\Demo\AI-DESK\backend\internal\models\models.go
+Authentication:          D:\Demo\AI-DESK\backend\internal\handlers\auth.go
+API Handlers:            D:\Demo\AI-DESK\backend\internal\handlers\
+JWT Middleware:          D:\Demo\AI-DESK\backend\internal\middleware\auth.go
+Configuration:           D:\Demo\AI-DESK\backend\config\config.go
+Database Schema:         D:\Demo\AI-DESK\backend\migrations\001_init.sql
+Docker Compose:          D:\Demo\AI-DESK\backend\docker-compose.yml
+Deployment Guide:        D:\Demo\AI-DESK\backend\DEPLOYMENT.md
+Dependencies:            D:\Demo\AI-DESK\backend\go.mod
+
+================================================================================
+TESTING CREDENTIALS
+================================================================================
+
+Admin User:
+Email:    admin@aidesK.local
+Password: admin123
+
+All credentials should be changed before production deployment.
+
+================================================================================
+SUPPORT & DOCUMENTATION
+================================================================================
+
+Deployment Guide:  See DEPLOYMENT.md in the backend directory
+API Reference:     Endpoints documented above
+Architecture:      GORM ORM with PostgreSQL backend
+Build Process:     Docker multi-stage build for minimal image size
+
+All code is production-ready with proper error handling, validation, and
+security measures implemented throughout.
+
+================================================================================
+BUILD & DEPLOYMENT COMMANDS
+================================================================================
+
+# Docker Compose (Recommended)
+docker-compose up -d
+
+# Check logs
+docker-compose logs -f app
+
+# Stop services
+docker-compose down
+
+# Rebuild image
+docker build -t ai-desk-backend:latest .
+
+# Local development
+go mod tidy
+go run ./cmd/main.go
+
+# Build binary
+go build -o bin/main ./cmd/main.go
+
+================================================================================

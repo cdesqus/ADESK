@@ -1,0 +1,65 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Test binaries
+*.test
+
+# Output of coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Binaries
+/main
+/bin/
+/dist/
+
+# Temporary files
+*.tmp
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Planning Documents (Project Management)
+*.docx
+*.doc
+*.pptx
+PLANNING_*
+*_PLANNING*
+AI-DESK_Planning_*
+planning/
+docs/planning/
+**/planning/**
+
+# Reports & Exports
+reports/generated/
+exports/
+*.csv.backup
+*.pdf.backup
+
+# Deployment & Configuration
+docker-compose.override.yml
+.env.production
+credentials.json
+secrets/
