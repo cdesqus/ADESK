@@ -26,6 +26,13 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 	pdf := fpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(pageMargin, pageMargin, pageMargin)
 	pdf.SetAutoPageBreak(true, 15)
+	pdf.AliasNbPages("")
+	pdf.SetFooterFunc(func() {
+		pdf.SetY(-15)
+		pdf.SetFont("Helvetica", "I", 8)
+		pdf.SetTextColor(128, 128, 128)
+		cell(pdf, 0, 10, fmt.Sprintf("Page %d of {nb}", pdf.PageNo()), "0", 0, "C", false)
+	})
 
 	// Page 1: Cover page
 	pdf.AddPage()
@@ -237,19 +244,6 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 		cell(pdf, 15, cellHeight, fmt.Sprintf("%.1f", ticket.TimeToResolve), "1", 0, "C", true)
 		cell(pdf, 30, cellHeight, ticket.Engineer, "1", 1, "L", true)
 		alternateRow = !alternateRow
-	}
-
-	// Add footer with page numbers
-	totalPages := pdf.PageCount()
-	for i := 1; i <= totalPages; i++ {
-		pdf.Seek(0, 2)
-		if i <= pdf.PageCount() {
-			pdf.SetPage(i)
-			pdf.SetY(-15)
-			pdf.SetFont("Helvetica", "I", 8)
-			pdf.SetTextColor(128, 128, 128)
-			cell(pdf, 0, 10, fmt.Sprintf("Page %d of %d", i, totalPages), "0", 0, "C", false)
-		}
 	}
 
 	var buf bytes.Buffer
