@@ -112,7 +112,7 @@ func main() {
 	reportGenerator := reports.NewReportGenerator(database, cfg.SLAHours)
 	reportMailer := reports.NewReportMailer(smtpClient)
 	reportRepository := reports.NewReportRepository(database)
-	reportScheduler := reports.NewReportScheduler(database, reportGenerator, reportMailer, reportRepository, cfg.SLAHours)
+	reportScheduler := jobs.NewReportScheduler(database, reportGenerator, reportMailer, reportRepository, cfg.SLAHours)
 	reportHandler := handlers.NewReportHandler(database, reportGenerator, reportRepository, reportScheduler, reportMailer)
 
 	// Start report scheduler

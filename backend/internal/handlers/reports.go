@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"ai-desk/internal/email"
+	"ai-desk/internal/jobs"
 	"ai-desk/internal/models"
 	"ai-desk/internal/reports"
 	"github.com/gin-gonic/gin"
@@ -18,12 +18,12 @@ type ReportHandler struct {
 	db        *gorm.DB
 	generator *reports.ReportGenerator
 	repo      *reports.ReportRepository
-	scheduler *reports.ReportScheduler
+	scheduler *jobs.ReportScheduler
 	mailer    *reports.ReportMailer
 }
 
 func NewReportHandler(db *gorm.DB, generator *reports.ReportGenerator,
-	repo *reports.ReportRepository, scheduler *reports.ReportScheduler, mailer *reports.ReportMailer) *ReportHandler {
+	repo *reports.ReportRepository, scheduler *jobs.ReportScheduler, mailer *reports.ReportMailer) *ReportHandler {
 	return &ReportHandler{
 		db:        db,
 		generator: generator,
@@ -40,13 +40,13 @@ type GenerateReportRequest struct {
 }
 
 type ReportListResponse struct {
-	ID          string     `json:"id"`
-	CustomerID  uint       `json:"customer_id"`
-	Month       int        `json:"month"`
-	Year        int        `json:"year"`
-	GeneratedAt time.Time  `json:"generated_at"`
-	SentAt      *time.Time `json:"sent_at"`
-	SentToEmails []string  `json:"sent_to_emails"`
+	ID           string     `json:"id"`
+	CustomerID   uint       `json:"customer_id"`
+	Month        int        `json:"month"`
+	Year         int        `json:"year"`
+	GeneratedAt  time.Time  `json:"generated_at"`
+	SentAt       *time.Time `json:"sent_at"`
+	SentToEmails []string   `json:"sent_to_emails"`
 }
 
 // POST /api/reports/generate - Generate report on-demand
@@ -95,14 +95,14 @@ func (rh *ReportHandler) ListReports(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
-	reports, total, err := rh.repo.ListReports(ctx, customerID, limit, offset)
+	reportsList, total, err := rh.repo.ListReports(ctx, customerID, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to list reports: %v", err)})
 		return
 	}
 
-	response := make([]ReportListResponse, len(reports))
-	for i, r := range reports {
+	response := make([]ReportListResponse, len(reportsList))
+	for i, r := range reportsList {
 		response[i] = ReportListResponse{
 			ID:           r.ID,
 			CustomerID:   r.CustomerID,
@@ -115,9 +115,9 @@ func (rh *ReportHandler) ListReports(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data":  response,
-		"total": total,
-		"limit": limit,
+		"data":   response,
+		"total":  total,
+		"limit":  limit,
 		"offset": offset,
 	})
 }
