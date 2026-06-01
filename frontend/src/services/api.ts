@@ -35,7 +35,7 @@ class ApiService {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+    this.baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 
     this.api = axios.create({
       baseURL: this.baseURL,
