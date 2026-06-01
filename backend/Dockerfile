@@ -8,11 +8,11 @@ RUN apk add --no-cache git gcc musl-dev
 # Copy go mod files
 COPY go.mod go.sum ./
 
-# Download dependencies
-RUN go mod download
-
 # Copy source code
 COPY . .
+
+# Fix checksum issues and download dependencies
+RUN go clean -modcache && go mod tidy
 
 # Build the application
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/main.go
