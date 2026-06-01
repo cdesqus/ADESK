@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apk add --no-cache git gcc musl-dev
 
 # Copy go mod files
-COPY go.mod go.sum ./
+COPY go.mod ./
 
 # Download dependencies
 RUN go mod download
@@ -14,8 +14,8 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/main.go
+# Build the application using -mod=mod to automatically update missing go.sum entries
+RUN CGO_ENABLED=1 GOOS=linux go build -mod=mod -a -installsuffix cgo -o main ./cmd/main.go
 
 FROM alpine:latest
 
