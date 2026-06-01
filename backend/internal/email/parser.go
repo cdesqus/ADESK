@@ -1,7 +1,6 @@
 package email
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/emersion/go-imap"
+	emersionMail "github.com/emersion/go-message/mail"
 )
 
 // ParseEmail parses an IMAP message into EmailMessage struct
@@ -20,14 +20,22 @@ func ParseEmail(msg *imap.Message) (*EmailMessage, error) {
 	}
 
 	// Get raw email data
-	section, err := msg.GetSection(nil)
-	if err != nil {
-		log.Printf("Failed to get message section: %v", err)
-		return nil, fmt.Errorf("failed to get message section: %w", err)
+	var r io.Reader
+	for _, body := range msg.Body {
+		r = body
+		break
+	}
+	if r == nil {
+		return nil, fmt.Errorf("no body found in message")
 	}
 
-	r := mail.NewReader(section.Literal)
-	header := r.Header
+	mr, err := emersionMail.CreateReader(r)
+	if err != nil {
+		log.Printf("Failed to create message reader: %v", err)
+		return nil, err
+	}
+
+	header := mr.Header
 
 	// Parse basic headers
 	from := header.Get("From")
@@ -50,14 +58,13 @@ func ParseEmail(msg *imap.Message) (*EmailMessage, error) {
 			date = parsedDate
 		} else {
 			date = time.Now()
-			log.Printf("Failed to parse date '%s': %v", dateStr, err)
 		}
 	} else {
 		date = time.Now()
 	}
 
 	// Extract text and HTML bodies
-	textBody, htmlBody, attachments := parseBodyAndAttachments(r)
+	textBody, htmlBody, attachments := parseBodyAndAttachments(mr)
 
 	// Extract sender email from "From" header
 	addr, err := mail.ParseAddress(from)
@@ -94,12 +101,12 @@ func ParseEmail(msg *imap.Message) (*EmailMessage, error) {
 }
 
 // parseBodyAndAttachments parses the multipart email body and extracts attachments
-func parseBodyAndAttachments(r *mail.Reader) (string, string, []AttachmentMetadata) {
+func parseBodyAndAttachments(mr *emersionMail.Reader) (string, string, []AttachmentMetadata) {
 	var textBody, htmlBody string
 	var attachments []AttachmentMetadata
 
 	for {
-		part, err := r.NextPart()
+		part, err := mr.NextPart()
 		if err == io.EOF {
 			break
 		}
@@ -108,68 +115,21 @@ func parseBodyAndAttachments(r *mail.Reader) (string, string, []AttachmentMetada
 			continue
 		}
 
-		header := part.Header
-		contentType := header.Get("Content-Type")
-		contentDisposition := header.Get("Content-Disposition")
-		filename, _ := header.Get("Content-Disposition")
-
-		// Parse content type
-		mediaType, params, _ := mime.ParseMediaType(contentType)
-
-		// Handle attachments
-		if strings.Contains(contentDisposition, "attachment") {
-			filename := part.FileName()
-			if filename != "" {
-				size := 0
-				bodyBytes, _ := io.ReadAll(part)
-				size = len(bodyBytes)
-
-				attachments = append(attachments, AttachmentMetadata{
-					Filename: filename,
-					MimeType: mediaType,
-					Size:     size,
-				})
+		switch h := part.Header.(type) {
+		case *emersionMail.InlineHeader:
+			body, _ := io.ReadAll(part.Body)
+			mediaType, _, _ := h.ContentType()
+			if strings.HasPrefix(mediaType, "text/plain") {
+				textBody = string(body)
+			} else if strings.HasPrefix(mediaType, "text/html") {
+				htmlBody = string(body)
 			}
-			continue
-		}
-
-		// Handle body parts
-		body, _ := io.ReadAll(part)
-		bodyStr := strings.TrimSpace(string(body))
-
-		if strings.HasPrefix(mediaType, "text/plain") {
-			textBody = bodyStr
-		} else if strings.HasPrefix(mediaType, "text/html") {
-			htmlBody = bodyStr
-		} else if strings.HasPrefix(mediaType, "multipart") {
-			// Nested multipart, parse recursively
-			partReader := mail.NewReader(bytes.NewReader(body))
-			nestedText, nestedHTML, nestedAttachments := parseBodyAndAttachments(partReader)
-			if textBody == "" {
-				textBody = nestedText
-			}
-			if htmlBody == "" {
-				htmlBody = nestedHTML
-			}
-			attachments = append(attachments, nestedAttachments...)
-		}
-
-		// Try to get filename from Content-Disposition
-		if filename != "" {
-			_, params2, _ := mime.ParseMediaType(contentDisposition)
-			if fn, ok := params2["filename"]; ok {
-				attachments = append(attachments, AttachmentMetadata{
-					Filename: fn,
-					MimeType: mediaType,
-					Size:     len(body),
-				})
-			}
-		}
-
-		// Get filename from Content-Type charset param if exists
-		if fn, ok := params["name"]; ok {
+		case *emersionMail.AttachmentHeader:
+			filename, _ := h.Filename()
+			body, _ := io.ReadAll(part.Body)
+			mediaType, _, _ := h.ContentType()
 			attachments = append(attachments, AttachmentMetadata{
-				Filename: fn,
+				Filename: filename,
 				MimeType: mediaType,
 				Size:     len(body),
 			})

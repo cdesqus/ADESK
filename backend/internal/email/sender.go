@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
-	"mime/multipart"
 	"net/smtp"
 	"strings"
 

@@ -67,26 +67,29 @@ func (ic *IMAPClient) FetchUnreadEmails() ([]*imap.Message, error) {
 
 	// Search for unread emails
 	criteria := imap.NewSearchCriteria()
-	criteria.Unseen = true
-	seqsets, err := ic.client.Search(criteria)
+	criteria.WithoutFlags = []string{imap.SeenFlag}
+	uids, err := ic.client.Search(criteria)
 	if err != nil {
 		log.Printf("Failed to search unread emails: %v", err)
 		return nil, fmt.Errorf("failed to search: %w", err)
 	}
 
-	if len(seqsets) == 0 {
+	if len(uids) == 0 {
 		return nil, nil
 	}
+
+	seqset := new(imap.SeqSet)
+	seqset.AddNum(uids...)
 
 	// Fetch messages
 	messages := make(chan *imap.Message, 10)
 	done := make(chan error, 1)
 	go func() {
-		done <- ic.client.Fetch(seqsets, []imap.FetchItem{
+		done <- ic.client.Fetch(seqset, []imap.FetchItem{
 			imap.FetchEnvelope,
 			imap.FetchBodyStructure,
 			"BODY.PEEK[]",
-			imap.FetchUID,
+			imap.FetchUid,
 		}, messages)
 	}()
 
@@ -112,10 +115,9 @@ func (ic *IMAPClient) MarkAsRead(uid uint32) error {
 	seqset := new(imap.SeqSet)
 	seqset.AddNum(uid)
 
-	item := "FLAGS"
 	flags := []interface{}{imap.SeenFlag}
 
-	if err := ic.client.Store(seqset, "+"+item, flags, nil); err != nil {
+	if err := ic.client.Store(seqset, imap.StoreItem("+FLAGS"), flags, nil); err != nil {
 		log.Printf("Failed to mark UID %d as read: %v", uid, err)
 		return fmt.Errorf("failed to mark as read: %w", err)
 	}

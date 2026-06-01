@@ -35,7 +35,7 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, fromPhone, content strin
 		var engineer models.Engineer
 		if err := h.db.First(&engineer, engineerPhone.EngineerID).Error; err == nil {
 			customerID = engineer.CustomerID
-			if err := h.db.First(&customer, engineer.CustomerID).Error != nil {
+			if err := h.db.First(&customer, engineer.CustomerID).Error; err != nil {
 				return fmt.Errorf("customer not found")
 			}
 		}
