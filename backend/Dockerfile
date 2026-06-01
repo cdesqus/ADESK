@@ -27,8 +27,8 @@ RUN apk --no-cache add ca-certificates postgresql-client
 # Copy binary from builder
 COPY --from=builder /app/main .
 
-# Copy config files if needed
-COPY --from=builder /app/.env.example ./.env.example || true
+# Copy config files if needed (using wildcard to prevent failure if it doesn't exist)
+COPY --from=builder /app/.env.exampl[e] ./
 
 EXPOSE 8000
 
