@@ -154,10 +154,10 @@ func Load() *Config {
 			log.Fatal("JWT_SECRET must be set in production")
 		}
 		if cfg.EmailUser == "" || cfg.EmailPassword == "" {
-			log.Fatal("EMAIL_USER and EMAIL_PASSWORD must be set in production")
+			log.Printf("WARNING: EMAIL_USER and EMAIL_PASSWORD are not set in production. Email integration will be disabled.")
 		}
 		if cfg.SMTPUser == "" || cfg.SMTPPassword == "" {
-			log.Fatal("SMTP_USER and SMTP_PASSWORD must be set in production")
+			log.Printf("WARNING: SMTP_USER and SMTP_PASSWORD are not set in production. Outbound emails will fail.")
 		}
 	}
 
