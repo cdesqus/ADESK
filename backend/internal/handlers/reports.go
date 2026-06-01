@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"ai-desk/internal/jobs"
 	"ai-desk/internal/models"
 	"ai-desk/internal/reports"
 	"github.com/gin-gonic/gin"
@@ -18,12 +17,12 @@ type ReportHandler struct {
 	db        *gorm.DB
 	generator *reports.ReportGenerator
 	repo      *reports.ReportRepository
-	scheduler *jobs.ReportScheduler
+	scheduler *reports.ReportScheduler
 	mailer    *reports.ReportMailer
 }
 
 func NewReportHandler(db *gorm.DB, generator *reports.ReportGenerator,
-	repo *reports.ReportRepository, scheduler *jobs.ReportScheduler, mailer *reports.ReportMailer) *ReportHandler {
+	repo *reports.ReportRepository, scheduler *reports.ReportScheduler, mailer *reports.ReportMailer) *ReportHandler {
 	return &ReportHandler{
 		db:        db,
 		generator: generator,
