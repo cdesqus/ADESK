@@ -89,6 +89,7 @@ export interface Customer {
   name: string;
   email: string;
   phone?: string;
+  domain?: string;
   company?: string;
   createdAt: string;
 }
@@ -98,7 +99,9 @@ export interface Engineer {
   name: string;
   email: string;
   phone?: string;
+  domain?: string;
   specialization?: string;
+  status?: 'active' | 'inactive';
   createdAt: string;
 }
 

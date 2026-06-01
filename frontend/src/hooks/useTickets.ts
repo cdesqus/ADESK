@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Ticket, PaginatedResponse } from '@/types';
-import apiService from '@/services/api';
+import { apiService } from '@/services/api';
 
 interface UseTicketsOptions {
   page?: number;
@@ -36,10 +36,10 @@ export const useTickets = () => {
       );
       setTickets(response.data);
       setPagination({
-        page: response.meta.page,
-        pageSize: response.meta.pageSize,
-        total: response.meta.total,
-        totalPages: response.meta.totalPages,
+        page: response.page,
+        pageSize: response.pageSize,
+        total: response.total,
+        totalPages: response.totalPages,
       });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to fetch tickets';

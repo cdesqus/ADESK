@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Customer, PaginatedResponse } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import apiService from '@/services/api';
+import { apiService } from '@/services/api';
 import { Edit2, Trash2, Plus } from 'lucide-react';
 
 export const CustomersPage: React.FC = () => {
@@ -25,10 +25,10 @@ export const CustomersPage: React.FC = () => {
       const response: PaginatedResponse<Customer> = await apiService.getCustomers(page, 20);
       setCustomers(response.data);
       setPagination({
-        page: response.meta.page,
-        pageSize: response.meta.pageSize,
-        total: response.meta.total,
-        totalPages: response.meta.totalPages,
+        page: response.page,
+        pageSize: response.pageSize,
+        total: response.total,
+        totalPages: response.totalPages,
       });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to load customers';

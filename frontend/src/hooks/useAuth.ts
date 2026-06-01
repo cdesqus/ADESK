@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, LoginRequest } from '@/types';
-import apiService from '@/services/api';
+import { apiService } from '@/services/api';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);

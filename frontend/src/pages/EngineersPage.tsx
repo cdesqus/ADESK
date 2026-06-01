@@ -3,7 +3,7 @@ import { Engineer, PaginatedResponse } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import apiService from '@/services/api';
+import { apiService } from '@/services/api';
 import { Edit2, Trash2, Plus } from 'lucide-react';
 
 export const EngineersPage: React.FC = () => {
@@ -12,7 +12,7 @@ export const EngineersPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', email: '', specialty: '', status: 'active' as const });
+  const [formData, setFormData] = useState({ name: '', email: '', specialty: '', status: 'active' as 'active' | 'inactive' });
   const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
@@ -26,10 +26,10 @@ export const EngineersPage: React.FC = () => {
       const response: PaginatedResponse<Engineer> = await apiService.getEngineers(page, 20);
       setEngineers(response.data);
       setPagination({
-        page: response.meta.page,
-        pageSize: response.meta.pageSize,
-        total: response.meta.total,
-        totalPages: response.meta.totalPages,
+        page: response.page,
+        pageSize: response.pageSize,
+        total: response.total,
+        totalPages: response.totalPages,
       });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to load engineers';
@@ -43,7 +43,7 @@ export const EngineersPage: React.FC = () => {
     if (!formData.name || !formData.email) return;
     try {
       await apiService.createEngineer(formData);
-      setFormData({ name: '', email: '', specialty: '', status: 'active' });
+      setFormData({ name: '', email: '', specialty: '', status: 'active' as 'active' | 'inactive' });
       setIsAdding(false);
       fetchEngineers();
     } catch (err) {
@@ -55,7 +55,7 @@ export const EngineersPage: React.FC = () => {
     try {
       await apiService.updateEngineer(id, formData);
       setEditingId(null);
-      setFormData({ name: '', email: '', specialty: '', status: 'active' });
+      setFormData({ name: '', email: '', specialty: '', status: 'active' as 'active' | 'inactive' });
       fetchEngineers();
     } catch (err) {
       console.error('Failed to update engineer:', err);
@@ -74,7 +74,7 @@ export const EngineersPage: React.FC = () => {
 
   const handleEdit = (engineer: Engineer) => {
     setEditingId(engineer.id);
-    setFormData({ name: engineer.name, email: engineer.email, specialty: engineer.specialty || '', status: engineer.status });
+    setFormData({ name: engineer.name, email: engineer.email, specialty: engineer.specialization || '', status: engineer.status || 'active' });
   };
 
   return (
@@ -125,7 +125,7 @@ export const EngineersPage: React.FC = () => {
             </Select>
             <div className="flex gap-3">
               <Button onClick={handleAdd}>Create</Button>
-              <Button variant="outline" onClick={() => { setIsAdding(false); setFormData({ name: '', email: '', specialty: '', status: 'active' }); }}>
+              <Button variant="outline" onClick={() => { setIsAdding(false); setFormData({ name: '', email: '', specialty: '', status: 'active' as 'active' | 'inactive' }); }}>
                 Cancel
               </Button>
             </div>
@@ -158,9 +158,9 @@ export const EngineersPage: React.FC = () => {
                   <tr key={engineer.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{engineer.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{engineer.email}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{engineer.specialty || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{engineer.specialization || '-'}</td>
                     <td className="px-6 py-4 text-sm">
-                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${engineer.status === 'active' ? 'bg-green-50 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${(engineer.status || 'active') === 'active' ? 'bg-green-50 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                         {engineer.status}
                       </span>
                     </td>
@@ -193,7 +193,7 @@ export const EngineersPage: React.FC = () => {
                 </Select>
                 <div className="flex gap-3">
                   <Button onClick={() => handleUpdate(editingId)}>Save</Button>
-                  <Button variant="outline" onClick={() => { setEditingId(null); setFormData({ name: '', email: '', specialty: '', status: 'active' }); }}>
+                  <Button variant="outline" onClick={() => { setEditingId(null); setFormData({ name: '', email: '', specialty: '', status: 'active' as 'active' | 'inactive' }); }}>
                     Cancel
                   </Button>
                 </div>

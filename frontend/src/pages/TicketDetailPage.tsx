@@ -4,7 +4,7 @@ import { Ticket, TicketComment, TicketUpdate, TicketStatus } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import apiService from '@/services/api';
+import { apiService } from '@/services/api';
 import { ArrowLeft, Send, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 

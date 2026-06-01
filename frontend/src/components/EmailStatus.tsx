@@ -92,7 +92,7 @@ export const EmailStatus: React.FC<EmailStatusProps> = ({
               )}
             </Button>
             <Button
-              variant="primary"
+              variant="default"
               size="sm"
               onClick={onSync}
               disabled={isSyncing || !isConnected}
