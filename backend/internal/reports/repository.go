@@ -7,7 +7,7 @@ import (
 
 	"ai-desk/internal/models"
 	"github.com/google/uuid"
-	"gorm.io/clause"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm"
 )
 
