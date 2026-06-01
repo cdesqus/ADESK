@@ -55,7 +55,7 @@ type Engineer struct {
 	Name          string         `gorm:"not null;index" json:"name"`
 	Email         string         `gorm:"not null" json:"email"`
 	WhatsappNumber string         `json:"whatsapp_number"`
-	Skills        datatypes.JSONSlice `gorm:"type:jsonb;default:'[]'" json:"skills"`
+	Skills        datatypes.JSONSlice[string] `gorm:"type:jsonb;default:'[]'" json:"skills"`
 	IsActive      bool           `gorm:"default:true" json:"is_active"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
