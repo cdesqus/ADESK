@@ -7,7 +7,7 @@ PRE-DEPLOYMENT
 [ ] Review WHATSAPP_INTEGRATION.md for complete architecture overview
 [ ] Review PHASE3_SUMMARY.txt for implementation details
 [ ] Ensure Docker credentials are configured:
-    docker login -u devlikeapro -p dckr_pat_7ea_I2rTo7h-QsbJBM1NAl5kMp0
+    docker login -u devlikeapro -p YOUR_WAHA_PAT_TOKEN_HERE
 
 [ ] Copy .env.example to .env and update values:
     - WAHA_API_URL

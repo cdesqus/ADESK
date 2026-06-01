@@ -175,8 +175,8 @@ Environment Variables Needed:
 
 Docker Registry Auth:
 - Username: devlikeapro
-- Password: dckr_pat_7ea_I2rTo7h-QsbJBM1NAl5kMp0
-- Command: docker login -u devlikeapro -p dckr_pat_7ea_I2rTo7h-QsbJBM1NAl5kMp0
+- Password: YOUR_WAHA_PAT_TOKEN_HERE (ask team lead for credentials)
+- Command: docker login -u devlikeapro -p YOUR_WAHA_PAT_TOKEN_HERE
 
 FEATURE COMPLETENESS:
 ====================

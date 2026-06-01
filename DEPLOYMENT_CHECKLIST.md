@@ -113,7 +113,8 @@ EOF
 cd /opt/ai-desk/backend
 
 # Login to Docker Hub (one-time)
-docker login -u devlikeapro -p dckr_pat_7ea_I2rTo7h-QsbJBM1NAl5kMp0
+# Use your actual Waha Plus credentials (ask team lead)
+docker login -u devlikeapro -p YOUR_WAHA_PAT_TOKEN_HERE
 
 # Pull Waha Plus
 docker pull devlikeapro/waha-plus:latest

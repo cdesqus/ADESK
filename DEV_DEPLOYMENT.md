@@ -225,9 +225,11 @@ EOF
 cd /opt/ai-desk/backend
 
 # Pull Waha Plus image (using provided credentials)
-docker login -u devlikeapro -p dckr_pat_7ea_I2rTo7h-QsbJBM1NAl5kMp0
+docker login -u devlikeapro -p YOUR_WAHA_PAT_TOKEN_HERE
 docker pull devlikeapro/waha-plus:latest
 docker logout
+
+# Note: Get the actual Waha Plus PAT token from your team lead or secure vault
 
 # Start all services
 docker-compose up -d
