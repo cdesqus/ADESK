@@ -1,8 +1,8 @@
 package reports
 
 import (
+	"bytes"
 	"fmt"
-	"image/color"
 	"sort"
 
 	"ai-desk/internal/models"
@@ -18,6 +18,10 @@ const (
 	cellHeight     = 6
 )
 
+func cell(pdf *fpdf.Fpdf, w, h float64, txt, border string, ln int, align string, fill bool) {
+	pdf.CellFormat(w, h, txt, border, ln, align, fill, 0, "")
+}
+
 func ExportToPDF(report *models.ReportData) ([]byte, error) {
 	pdf := fpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(pageMargin, pageMargin, pageMargin)
@@ -27,15 +31,15 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 	pdf.AddPage()
 	pdf.SetFont("Helvetica", "B", 24)
 	pdf.SetTextColor(colorHeaderRGB, colorHeaderG, colorHeaderB)
-	pdf.Cell(0, 20, "Monthly Support Report", 0, 1, "C")
+	cell(pdf, 0, 20, "Monthly Support Report", "0", 1, "C", false)
 
 	pdf.SetFont("Helvetica", "", 12)
 	pdf.SetTextColor(0, 0, 0)
 	pdf.Ln(10)
-	pdf.Cell(0, 10, fmt.Sprintf("Customer: %s", report.CustomerName), 0, 1, "C")
-	pdf.Cell(0, 10, fmt.Sprintf("Month: %s", report.Month), 0, 1, "C")
-	pdf.Cell(0, 10, fmt.Sprintf("Year: %d", report.Year), 0, 1, "C")
-	pdf.Cell(0, 10, fmt.Sprintf("Generated: %s", report.GeneratedAt.Format("2006-01-02 15:04")), 0, 1, "C")
+	cell(pdf, 0, 10, fmt.Sprintf("Customer: %s", report.CustomerName), "0", 1, "C", false)
+	cell(pdf, 0, 10, fmt.Sprintf("Month: %s", report.Month), "0", 1, "C", false)
+	cell(pdf, 0, 10, fmt.Sprintf("Year: %d", report.Year), "0", 1, "C", false)
+	cell(pdf, 0, 10, fmt.Sprintf("Generated: %s", report.GeneratedAt.Format("2006-01-02 15:04")), "0", 1, "C", false)
 
 	// Page 2: Executive Summary
 	pdf.AddPage()
@@ -56,13 +60,13 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 		{"SLA Compliance", fmt.Sprintf("%.1f%%", report.Metrics.SLACompliance)},
 	}
 
-	boxWidth := 40
+	boxWidth := 40.0
 	for _, m := range metrics {
-		pdf.Cell(boxWidth, 10, m.label, 1, 0, "C", true)
+		cell(pdf, boxWidth, 10, m.label, "1", 0, "C", true)
 		pdf.SetFont("Helvetica", "", 10)
 		pdf.SetTextColor(0, 0, 0)
 		pdf.SetFillColor(240, 240, 240)
-		pdf.Cell(boxWidth, 10, m.value, 1, 1, "C", true)
+		cell(pdf, boxWidth, 10, m.value, "1", 1, "C", true)
 		pdf.SetFont("Helvetica", "B", 10)
 		pdf.SetFillColor(colorHeaderRGB, colorHeaderG, colorHeaderB)
 		pdf.SetTextColor(255, 255, 255)
@@ -75,8 +79,8 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 	pdf.SetFont("Helvetica", "B", 10)
 	pdf.SetFillColor(colorHeaderRGB, colorHeaderG, colorHeaderB)
 	pdf.SetTextColor(255, 255, 255)
-	pdf.Cell(30, headerHeight, "Status", 1, 0, "C", true)
-	pdf.Cell(30, headerHeight, "Count", 1, 1, "C", true)
+	cell(pdf, 30, headerHeight, "Status", "1", 0, "C", true)
+	cell(pdf, 30, headerHeight, "Count", "1", 1, "C", true)
 
 	pdf.SetFont("Helvetica", "", 9)
 	pdf.SetTextColor(0, 0, 0)
@@ -87,8 +91,8 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 		} else {
 			pdf.SetFillColor(255, 255, 255)
 		}
-		pdf.Cell(30, cellHeight, status, 1, 0, "L", true)
-		pdf.Cell(30, cellHeight, fmt.Sprintf("%d", count), 1, 1, "C", true)
+		cell(pdf, 30, cellHeight, status, "1", 0, "L", true)
+		cell(pdf, 30, cellHeight, fmt.Sprintf("%d", count), "1", 1, "C", true)
 		alternateRow = !alternateRow
 	}
 
@@ -98,8 +102,8 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 	pdf.SetFont("Helvetica", "B", 10)
 	pdf.SetFillColor(colorHeaderRGB, colorHeaderG, colorHeaderB)
 	pdf.SetTextColor(255, 255, 255)
-	pdf.Cell(30, headerHeight, "Priority", 1, 0, "C", true)
-	pdf.Cell(30, headerHeight, "Count", 1, 1, "C", true)
+	cell(pdf, 30, headerHeight, "Priority", "1", 0, "C", true)
+	cell(pdf, 30, headerHeight, "Count", "1", 1, "C", true)
 
 	pdf.SetFont("Helvetica", "", 9)
 	pdf.SetTextColor(0, 0, 0)
@@ -112,8 +116,8 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 			} else {
 				pdf.SetFillColor(255, 255, 255)
 			}
-			pdf.Cell(30, cellHeight, priority, 1, 0, "L", true)
-			pdf.Cell(30, cellHeight, fmt.Sprintf("%d", count), 1, 1, "C", true)
+			cell(pdf, 30, cellHeight, priority, "1", 0, "L", true)
+			cell(pdf, 30, cellHeight, fmt.Sprintf("%d", count), "1", 1, "C", true)
 			alternateRow = !alternateRow
 		}
 	}
@@ -125,10 +129,10 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 	pdf.SetFont("Helvetica", "B", 9)
 	pdf.SetFillColor(colorHeaderRGB, colorHeaderG, colorHeaderB)
 	pdf.SetTextColor(255, 255, 255)
-	pdf.Cell(40, headerHeight, "Engineer", 1, 0, "L", true)
-	pdf.Cell(25, headerHeight, "Tickets", 1, 0, "C", true)
-	pdf.Cell(25, headerHeight, "Avg Time", 1, 0, "C", true)
-	pdf.Cell(25, headerHeight, "Resolution %", 1, 1, "C", true)
+	cell(pdf, 40, headerHeight, "Engineer", "1", 0, "L", true)
+	cell(pdf, 25, headerHeight, "Tickets", "1", 0, "C", true)
+	cell(pdf, 25, headerHeight, "Avg Time", "1", 0, "C", true)
+	cell(pdf, 25, headerHeight, "Resolution %", "1", 1, "C", true)
 
 	pdf.SetFont("Helvetica", "", 8)
 	pdf.SetTextColor(0, 0, 0)
@@ -139,10 +143,10 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 		} else {
 			pdf.SetFillColor(255, 255, 255)
 		}
-		pdf.Cell(40, cellHeight, stat.Name, 1, 0, "L", true)
-		pdf.Cell(25, cellHeight, fmt.Sprintf("%d", stat.TicketsHandled), 1, 0, "C", true)
-		pdf.Cell(25, cellHeight, fmt.Sprintf("%.2f h", stat.AvgTime), 1, 0, "C", true)
-		pdf.Cell(25, cellHeight, fmt.Sprintf("%.1f%%", stat.ResolutionRate), 1, 1, "C", true)
+		cell(pdf, 40, cellHeight, stat.Name, "1", 0, "L", true)
+		cell(pdf, 25, cellHeight, fmt.Sprintf("%d", stat.TicketsHandled), "1", 0, "C", true)
+		cell(pdf, 25, cellHeight, fmt.Sprintf("%.2f h", stat.AvgTime), "1", 0, "C", true)
+		cell(pdf, 25, cellHeight, fmt.Sprintf("%.1f%%", stat.ResolutionRate), "1", 1, "C", true)
 		alternateRow = !alternateRow
 	}
 
@@ -150,10 +154,13 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 
 	// Source breakdown
 	pdf.SetFont("Helvetica", "B", 10)
-	pdf.Cell(30, headerHeight, "Source", 1, 0, "C", true)
-	pdf.Cell(30, headerHeight, "Count", 1, 1, "C", true)
+	pdf.SetFillColor(colorHeaderRGB, colorHeaderG, colorHeaderB)
+	pdf.SetTextColor(255, 255, 255)
+	cell(pdf, 30, headerHeight, "Source", "1", 0, "C", true)
+	cell(pdf, 30, headerHeight, "Count", "1", 1, "C", true)
 
 	pdf.SetFont("Helvetica", "", 9)
+	pdf.SetTextColor(0, 0, 0)
 	alternateRow = false
 	sourceOrder := []string{"EMAIL", "WHATSAPP", "WEB", "CHAT", "PHONE"}
 	for _, source := range sourceOrder {
@@ -163,8 +170,8 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 			} else {
 				pdf.SetFillColor(255, 255, 255)
 			}
-			pdf.Cell(30, cellHeight, source, 1, 0, "L", true)
-			pdf.Cell(30, cellHeight, fmt.Sprintf("%d", count), 1, 1, "C", true)
+			cell(pdf, 30, cellHeight, source, "1", 0, "L", true)
+			cell(pdf, 30, cellHeight, fmt.Sprintf("%d", count), "1", 1, "C", true)
 			alternateRow = !alternateRow
 		}
 	}
@@ -177,12 +184,12 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 	pdf.SetFillColor(colorHeaderRGB, colorHeaderG, colorHeaderB)
 	pdf.SetTextColor(255, 255, 255)
 
-	pdf.Cell(12, headerHeight, "ID", 1, 0, "C", true)
-	pdf.Cell(35, headerHeight, "Title", 1, 0, "L", true)
-	pdf.Cell(20, headerHeight, "Created", 1, 0, "C", true)
-	pdf.Cell(20, headerHeight, "Status", 1, 0, "C", true)
-	pdf.Cell(15, headerHeight, "Hrs", 1, 0, "C", true)
-	pdf.Cell(30, headerHeight, "Engineer", 1, 1, "L", true)
+	cell(pdf, 12, headerHeight, "ID", "1", 0, "C", true)
+	cell(pdf, 35, headerHeight, "Title", "1", 0, "L", true)
+	cell(pdf, 20, headerHeight, "Created", "1", 0, "C", true)
+	cell(pdf, 20, headerHeight, "Status", "1", 0, "C", true)
+	cell(pdf, 15, headerHeight, "Hrs", "1", 0, "C", true)
+	cell(pdf, 30, headerHeight, "Engineer", "1", 1, "L", true)
 
 	pdf.SetFont("Helvetica", "", 7)
 	pdf.SetTextColor(0, 0, 0)
@@ -202,12 +209,12 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 			pdf.SetFont("Helvetica", "B", 8)
 			pdf.SetFillColor(colorHeaderRGB, colorHeaderG, colorHeaderB)
 			pdf.SetTextColor(255, 255, 255)
-			pdf.Cell(12, headerHeight, "ID", 1, 0, "C", true)
-			pdf.Cell(35, headerHeight, "Title", 1, 0, "L", true)
-			pdf.Cell(20, headerHeight, "Created", 1, 0, "C", true)
-			pdf.Cell(20, headerHeight, "Status", 1, 0, "C", true)
-			pdf.Cell(15, headerHeight, "Hrs", 1, 0, "C", true)
-			pdf.Cell(30, headerHeight, "Engineer", 1, 1, "L", true)
+			cell(pdf, 12, headerHeight, "ID", "1", 0, "C", true)
+			cell(pdf, 35, headerHeight, "Title", "1", 0, "L", true)
+			cell(pdf, 20, headerHeight, "Created", "1", 0, "C", true)
+			cell(pdf, 20, headerHeight, "Status", "1", 0, "C", true)
+			cell(pdf, 15, headerHeight, "Hrs", "1", 0, "C", true)
+			cell(pdf, 30, headerHeight, "Engineer", "1", 1, "L", true)
 			pdf.SetFont("Helvetica", "", 7)
 			pdf.SetTextColor(0, 0, 0)
 			alternateRow = false
@@ -219,16 +226,16 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 			pdf.SetFillColor(255, 255, 255)
 		}
 
-		pdf.Cell(12, cellHeight, fmt.Sprintf("%d", ticket.ID), 1, 0, "C", true)
+		cell(pdf, 12, cellHeight, fmt.Sprintf("%d", ticket.ID), "1", 0, "C", true)
 		titleLen := len(ticket.Title)
 		if titleLen > 25 {
 			titleLen = 25
 		}
-		pdf.Cell(35, cellHeight, ticket.Title[:titleLen], 1, 0, "L", true)
-		pdf.Cell(20, cellHeight, ticket.CreatedAt.Format("01-02"), 1, 0, "C", true)
-		pdf.Cell(20, cellHeight, ticket.Status, 1, 0, "C", true)
-		pdf.Cell(15, cellHeight, fmt.Sprintf("%.1f", ticket.TimeToResolve), 1, 0, "C", true)
-		pdf.Cell(30, cellHeight, ticket.Engineer, 1, 1, "L", true)
+		cell(pdf, 35, cellHeight, ticket.Title[:titleLen], "1", 0, "L", true)
+		cell(pdf, 20, cellHeight, ticket.CreatedAt.Format("01-02"), "1", 0, "C", true)
+		cell(pdf, 20, cellHeight, ticket.Status, "1", 0, "C", true)
+		cell(pdf, 15, cellHeight, fmt.Sprintf("%.1f", ticket.TimeToResolve), "1", 0, "C", true)
+		cell(pdf, 30, cellHeight, ticket.Engineer, "1", 1, "L", true)
 		alternateRow = !alternateRow
 	}
 
@@ -241,17 +248,21 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 			pdf.SetY(-15)
 			pdf.SetFont("Helvetica", "I", 8)
 			pdf.SetTextColor(128, 128, 128)
-			pdf.Cell(0, 10, fmt.Sprintf("Page %d of %d", i, totalPages), 0, 0, "C")
+			cell(pdf, 0, 10, fmt.Sprintf("Page %d of %d", i, totalPages), "0", 0, "C", false)
 		}
 	}
 
-	return pdf.Output()
+	var buf bytes.Buffer
+	if err := pdf.Output(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func addSectionHeader(pdf *fpdf.Fpdf, title string) {
 	pdf.SetFont("Helvetica", "B", 14)
 	pdf.SetTextColor(colorHeaderRGB, colorHeaderG, colorHeaderB)
-	pdf.Cell(0, 10, title, 0, 1, "L")
+	cell(pdf, 0, 10, title, "0", 1, "L", false)
 	pdf.SetDrawColor(colorHeaderRGB, colorHeaderG, colorHeaderB)
 	pdf.Line(pdf.GetX(), pdf.GetY(), pdf.GetX()+190, pdf.GetY())
 	pdf.Ln(5)
