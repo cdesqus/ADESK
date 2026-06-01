@@ -35,7 +35,6 @@ github.com/jackc/pgpassfile v1.0.0/go.mod h1:CEx0iS5ambNFdcRtxPj5JhEz+xB6uRky5ey
 github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a h1:bbPQQkuCybvIYikLLg2OwqRhc7JA7rAV9c8R8tiI3g=
 github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a/go.mod h1:5yspPrukOVuOLORacaBi858NqyClJPQxYzLrBzpl4c=
 github.com/jackc/pgx/v5 v5.4.3 h1:irinwF0/3Cxffbaom4jmUKu0XVirxO+xNncMLCNAXk=
-github.com/jackc/pgx/v5 v5.4.3/go.mod h1:Ig06C2 Robertson2qSZH1GndaUT8eoJR5QwqUIRXkP1y8c=
 github.com/joho/godotenv v1.5.1 h1:7P4SfwW0XfpwW7EokyJ+7DyckRdMEVNmMvstxZMp88=
 github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DxwEWR+EM=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9lF+jtzIItQE0=
@@ -44,7 +43,6 @@ github.com/klauspost/cpuid/v2 v2.2.5 h1:0E5MSMDEoU0RNWbgI/5zk/i/JqkyMP6V8jsfmbZ0
 github.com/klauspost/cpuid/v2 v2.2.5/go.mod h1:Lcz8mBdAVJqL9mLiYnLbiDlmrB8ZRtherQY+ec0S1w=
 github.com/leodido/go-urn v1.2.4 h1:XlAE/cm/ms7TE/VMVoduSNM+5VuxLSMLC9zQEPWSuI=
 github.com/leodido/go-urn v1.2.4/go.mod h1:7ZrI8mTSeBSHl/UaIieN26/+RJjeuEigthArbNwJ3g=
-github.com/mattn/go-isatty v0.0.20 h1:W6wpDoA5OeSLwgHRoaGmv9xxx/iYNúTXvlulVsqfZ8=
 github.com/mattn/go-isatty v0.0.20/go.mod h1:Z8qyCQ3Bs3R+jZnR5+kxRRgfF+rt3EuO3Y5o3s7Gug=
 github.com/modern-go/concurrent v0.0.0-20230330173713-942fedbb3226 h1:+71Zsz+mbkNXii4v/AzYywi8b5G85pDjwmVeC7fpI8=
 github.com/modern-go/concurrent v0.0.0-20230330173713-942fedbb3226/go.mod h1:xvqfjaB5Q5bl8VyQ66LS4dLE3HRee4q6FWrsFA4NqE=
