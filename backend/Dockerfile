@@ -6,13 +6,16 @@ WORKDIR /app
 RUN apk add --no-cache git gcc musl-dev
 
 # Copy go mod files
-COPY go.mod go.sum ./
+COPY go.mod ./
 
 # Download dependencies
 RUN go mod download
 
 # Copy source code
 COPY . .
+
+# Remove the corrupted go.sum copied from the host
+RUN rm -f go.sum
 
 # Build the application
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/main.go
