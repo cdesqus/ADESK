@@ -45,6 +45,7 @@ func Migrate(db *gorm.DB) error {
 		&models.EngineerWAPhone{},
 		&models.WhatsAppLog{},
 		&models.MonthlyReport{},
+		&models.SystemSetting{},
 	)
 }
 

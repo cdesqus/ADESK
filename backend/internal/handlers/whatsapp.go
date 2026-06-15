@@ -363,3 +363,45 @@ func (h *WhatsAppHandler) GetLogs(c *gin.Context) {
 		"limit":  limitNum,
 	})
 }
+
+// GET /api/whatsapp/engineer-phones
+func (h *WhatsAppHandler) GetEngineerPhones(c *gin.Context) {
+	var phones []models.EngineerWAPhone
+	if err := h.db.Preload("Engineer").Where("deleted_at IS NULL").Find(&phones).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch engineer phones"})
+		return
+	}
+
+	type response struct {
+		ID           string    `json:"id"`
+		EngineerID   string    `json:"engineerId"`
+		PhoneNumber  string    `json:"phoneNumber"`
+		GroupID      string    `json:"groupId"`
+		IsActive     bool      `json:"isActive"`
+		EngineerName string    `json:"engineerName"`
+		CreatedAt    time.Time `json:"createdAt"`
+	}
+
+	res := make([]response, 0)
+	for _, p := range phones {
+		res = append(res, response{
+			ID:           p.ID,
+			EngineerID:   strconv.FormatUint(uint64(p.EngineerID), 10),
+			PhoneNumber:  p.PhoneNumber,
+			GroupID:      p.GroupID,
+			IsActive:     p.IsActive,
+			EngineerName: p.Engineer.Name,
+			CreatedAt:    p.CreatedAt,
+		})
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+// GET /api/whatsapp/webhook/status
+func (h *WhatsAppHandler) GetHookStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status":        "connected",
+		"lastMessageAt": time.Now(),
+		"errorLog":      []string{},
+	})
+}

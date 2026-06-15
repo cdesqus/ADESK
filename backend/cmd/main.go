@@ -79,7 +79,7 @@ func main() {
 		cfg.SMTPUser, // Use email user as from address
 		cfg.EmailFromName,
 	)
-	emailHandler := handlers.NewEmailHandler(database, domainMatcher, smtpClient)
+	emailHandler := handlers.NewEmailHandler(database, domainMatcher, smtpClient, cfg)
 
 	// Initialize and start email poller
 	var emailPoller *jobs.EmailPollerJob
@@ -215,21 +215,37 @@ func setupRoutes(
 		email.POST("/webhook", emailHandler.ProcessEmailWebhook)
 	}
 
+	// Email protected routes
+	emailProtected := protected.Group("/email")
+	{
+		emailProtected.GET("/settings", emailHandler.GetEmailSettings)
+		emailProtected.PATCH("/settings", emailHandler.UpdateEmailSettings)
+		emailProtected.GET("/domain-mappings", emailHandler.GetDomainMappings)
+		emailProtected.GET("/auto-reply-template", emailHandler.GetAutoReplyTemplate)
+		emailProtected.PATCH("/auto-reply-template", emailHandler.UpdateAutoReplyTemplate)
+		emailProtected.GET("/history", emailHandler.GetEmailHistory)
+		emailProtected.POST("/test-connection", emailHandler.TestEmailConnection)
+		emailProtected.POST("/sync", emailHandler.SyncEmails)
+	}
+
 	// WhatsApp routes (webhook without auth, management with auth)
 	whatsappWebhook := router.Group("/api/whatsapp")
 	{
-		whatsappWebhook.POST("/webhook", whatsappHandler.ProcessWebhook)
+		whatsappWebhook.POST("/webhook", waHandler.ProcessWebhook)
 	}
 
-	whatsappProtected := protected.Group("/whatsapp")
+	// WhatsApp routes
+	wa := protected.Group("/whatsapp")
 	{
-		whatsappProtected.POST("/sessions", whatsappHandler.CreateSession)
-		whatsappProtected.GET("/sessions", whatsappHandler.GetSessions)
-		whatsappProtected.GET("/sessions/:id/qr", whatsappHandler.GetSessionQR)
-		whatsappProtected.POST("/sessions/:id/verify", whatsappHandler.VerifySession)
-		whatsappProtected.DELETE("/sessions/:id", whatsappHandler.DeleteSession)
-		whatsappProtected.POST("/engineers/:id/phone", whatsappHandler.AddEngineerPhone)
-		whatsappProtected.GET("/logs", whatsappHandler.GetLogs)
+		wa.POST("/sessions", waHandler.CreateSession)
+		wa.GET("/sessions", waHandler.GetSessions)
+		wa.GET("/sessions/:id/qr", waHandler.GetSessionQR)
+		wa.POST("/sessions/:id/verify", waHandler.VerifySession)
+		wa.DELETE("/sessions/:id", waHandler.DeleteSession)
+		wa.POST("/engineers/:id/phone", waHandler.AddEngineerPhone)
+		wa.GET("/engineer-phones", waHandler.GetEngineerPhones)
+		wa.GET("/webhook/status", waHandler.GetHookStatus)
+		wa.GET("/logs", waHandler.GetLogs)
 	}
 }
 

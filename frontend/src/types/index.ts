@@ -91,6 +91,7 @@ export interface Customer {
   name: string;
   email: string;
   phone?: string;
+  address?: string;
   domain?: string;
   company?: string;
   createdAt: string;

@@ -38,6 +38,7 @@ type Customer struct {
 	Name         string         `gorm:"not null;index" json:"name"`
 	Domain       string         `gorm:"uniqueIndex" json:"domain"`
 	EmailSupport string         `json:"email_support"`
+	Address      string         `gorm:"type:text" json:"address"`
 	IsActive     bool           `gorm:"default:true" json:"is_active"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
@@ -46,6 +47,13 @@ type Customer struct {
 	// Relations
 	Engineers []Engineer `gorm:"foreignKey:CustomerID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"engineers,omitempty"`
 	Tickets   []Ticket   `gorm:"foreignKey:CustomerID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"tickets,omitempty"`
+}
+
+// SystemSetting represents a dynamic system configuration key-value pair
+type SystemSetting struct {
+	Key       string    `gorm:"primaryKey" json:"key"`
+	Value     string    `gorm:"type:text" json:"value"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Engineer represents a support engineer

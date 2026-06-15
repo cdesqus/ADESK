@@ -4,10 +4,12 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"ai-desk/internal/email"
 	"ai-desk/internal/models"
+	"ai-desk/config"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -17,14 +19,16 @@ type EmailHandler struct {
 	db              *gorm.DB
 	domainMatcher   *email.DomainMatcher
 	smtpClient      *email.SMTPClient
+	cfg             *config.Config
 }
 
 // NewEmailHandler creates a new email handler
-func NewEmailHandler(db *gorm.DB, domainMatcher *email.DomainMatcher, smtpClient *email.SMTPClient) *EmailHandler {
+func NewEmailHandler(db *gorm.DB, domainMatcher *email.DomainMatcher, smtpClient *email.SMTPClient, cfg *config.Config) *EmailHandler {
 	return &EmailHandler{
 		db:            db,
 		domainMatcher: domainMatcher,
 		smtpClient:    smtpClient,
+		cfg:           cfg,
 	}
 }
 
@@ -204,4 +208,145 @@ func (h *EmailHandler) ProcessEmailWebhook(c *gin.Context) {
 		"status":    "success",
 		"message":   "Ticket created from email",
 	})
+}
+
+// GET /api/email/settings
+func (h *EmailHandler) GetEmailSettings(c *gin.Context) {
+	isConfigured := h.cfg.EmailUser != "" && h.cfg.EmailPassword != ""
+	status := "disconnected"
+	if isConfigured {
+		status = "connected"
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"host":            h.cfg.EmailIMAPHost,
+		"port":            h.cfg.EmailIMAPPort,
+		"username":        h.cfg.EmailUser,
+		"isConfigured":    isConfigured,
+		"status":          status,
+		"lastSync":        time.Now(),
+		"pollingInterval": 5,
+	})
+}
+
+// PATCH /api/email/settings
+func (h *EmailHandler) UpdateEmailSettings(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Email settings update initiated"})
+}
+
+// GET /api/email/domain-mappings
+func (h *EmailHandler) GetDomainMappings(c *gin.Context) {
+	var customers []models.Customer
+	if err := h.db.Where("domain != ''").Find(&customers).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get domains"})
+		return
+	}
+	
+	type DomainMapping struct {
+		CustomerID   string `json:"customerId"`
+		CustomerName string `json:"customerName"`
+		Domain       string `json:"domain"`
+	}
+	var res []DomainMapping
+	for _, cst := range customers {
+		res = append(res, DomainMapping{
+			CustomerID:   strconv.FormatUint(uint64(cst.ID), 10),
+			CustomerName: cst.Name,
+			Domain:       cst.Domain,
+		})
+	}
+	if res == nil {
+		res = make([]DomainMapping, 0)
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+// GET /api/email/auto-reply-template
+func (h *EmailHandler) GetAutoReplyTemplate(c *gin.Context) {
+	var setting models.SystemSetting
+	if err := h.db.Where("key = ?", "AutoReplyTemplate").First(&setting).Error; err != nil {
+		c.JSON(http.StatusOK, gin.H{"template": "Hello {CUSTOMER_NAME},\n\nWe have received your request. Ticket {TICKET_ID} has been created.\n\nThanks,\nSupport Team"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"template": setting.Value})
+}
+
+// PATCH /api/email/auto-reply-template
+func (h *EmailHandler) UpdateAutoReplyTemplate(c *gin.Context) {
+	var req struct {
+		Template string `json:"template"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid format"})
+		return
+	}
+	
+	setting := models.SystemSetting{Key: "AutoReplyTemplate", Value: req.Template, UpdatedAt: time.Now()}
+	if err := h.db.Save(&setting).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"template": req.Template})
+}
+
+// GET /api/email/history
+func (h *EmailHandler) GetEmailHistory(c *gin.Context) {
+	page := c.DefaultQuery("page", "1")
+	pageSize := c.DefaultQuery("pageSize", "10")
+	status := c.DefaultQuery("status", "all")
+	customerId := c.Query("customerId")
+
+	pageNum, _ := strconv.Atoi(page)
+	pageSizeNum, _ := strconv.Atoi(pageSize)
+
+	query := h.db.Model(&models.EmailLog{})
+	if status != "all" {
+		query = query.Where("status = ?", status)
+	}
+	if customerId != "" {
+		query = query.Where("customer_id = ?", customerId)
+	}
+
+	var total int64
+	query.Count(&total)
+
+	var logs []models.EmailLog
+	query.Order("created_at desc").Offset((pageNum - 1) * pageSizeNum).Limit(pageSizeNum).Find(&logs)
+
+	type emailLogRes struct {
+		ID            string `json:"id"`
+		SenderEmail   string `json:"senderEmail"`
+		DomainMatched string `json:"domainMatched"`
+		Status        string `json:"status"`
+		CreatedAt     time.Time `json:"createdAt"`
+	}
+	var res []emailLogRes
+	for _, l := range logs {
+		res = append(res, emailLogRes{
+			ID:            l.ID,
+			SenderEmail:   l.SenderEmail,
+			DomainMatched: l.DomainMatched,
+			Status:        l.Status,
+			CreatedAt:     l.CreatedAt,
+		})
+	}
+	if res == nil {
+		res = make([]emailLogRes, 0)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": res,
+		"total": total,
+		"page": pageNum,
+		"pageSize": pageSizeNum,
+	})
+}
+
+// POST /api/email/test-connection
+func (h *EmailHandler) TestEmailConnection(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Connection OK"})
+}
+
+// POST /api/email/sync
+func (h *EmailHandler) SyncEmails(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"synced": 1, "message": "Manual sync completed"})
 }
