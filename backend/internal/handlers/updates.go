@@ -21,7 +21,7 @@ func NewUpdateHandler(db *gorm.DB) *UpdateHandler {
 // CreateUpdate adds an update/comment to a ticket
 // POST /api/tickets/:ticket_id/updates
 func (h *UpdateHandler) CreateUpdate(c *gin.Context) {
-	ticketID := c.Param("ticket_id")
+	ticketID := c.Param("id")
 
 	tid, err := strconv.ParseUint(ticketID, 10, 32)
 	if err != nil {
@@ -82,7 +82,7 @@ func (h *UpdateHandler) CreateUpdate(c *gin.Context) {
 // GetTicketUpdates retrieves all updates for a ticket
 // GET /api/tickets/:ticket_id/updates?page=1&limit=20
 func (h *UpdateHandler) GetTicketUpdates(c *gin.Context) {
-	ticketID := c.Param("ticket_id")
+	ticketID := c.Param("id")
 	page := c.DefaultQuery("page", "1")
 	limit := c.DefaultQuery("limit", "20")
 

@@ -186,8 +186,8 @@ func setupRoutes(
 		tickets.DELETE("/:id", ticketHandler.DeleteTicket)
 
 		// Update/comment routes under tickets
-		tickets.POST("/:ticket_id/updates", updateHandler.CreateUpdate)
-		tickets.GET("/:ticket_id/updates", updateHandler.GetTicketUpdates)
+		tickets.POST("/:id/updates", updateHandler.CreateUpdate)
+		tickets.GET("/:id/updates", updateHandler.GetTicketUpdates)
 	}
 
 	// Update routes
