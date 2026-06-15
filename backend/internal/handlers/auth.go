@@ -98,3 +98,34 @@ func HashPassword(password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(hash), err
 }
+
+// Me returns the current authenticated user's details
+func (h *AuthHandler) Me(c *gin.Context) {
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	claims, ok := claimsVal.(*middleware.Claims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid claims"})
+		return
+	}
+
+	var user models.User
+	if err := h.db.First(&user, claims.UserID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	// name is derived from email for simplicity
+	c.JSON(http.StatusOK, gin.H{
+		"id":         user.ID,
+		"email":      user.Email,
+		"name":       user.Email,
+		"role":       user.Role,
+		"created_at": user.CreatedAt,
+	})
+}
+

@@ -156,6 +156,8 @@ func setupRoutes(
 	protected := router.Group("/api")
 	protected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 
+	protected.GET("/auth/me", authHandler.Me)
+
 	// Customer routes
 	customers := protected.Group("/customers")
 	{
