@@ -37,9 +37,11 @@ export interface User {
 }
 
 export interface AuthToken {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
+  token: string;
+  user_id: number;
+  email: string;
+  role: string;
+  expires_at: number;
 }
 
 export interface LoginRequest {

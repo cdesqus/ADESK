@@ -99,7 +99,7 @@ class ApiService {
   // Auth endpoints
   async login(credentials: LoginRequest): Promise<AuthToken> {
     const response = await this.api.post<AuthToken>('/auth/login', credentials);
-    this.setAuthToken(response.data.access_token);
+    this.setAuthToken(response.data.token);
     return response.data;
   }
 
