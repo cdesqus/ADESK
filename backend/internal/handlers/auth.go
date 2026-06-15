@@ -101,20 +101,20 @@ func HashPassword(password string) (string, error) {
 
 // Me returns the current authenticated user's details
 func (h *AuthHandler) Me(c *gin.Context) {
-	claimsVal, exists := c.Get("claims")
+	userIDVal, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
-	claims, ok := claimsVal.(*middleware.Claims)
+	userID, ok := userIDVal.(uint)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid claims"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
 		return
 	}
 
 	var user models.User
-	if err := h.db.First(&user, claims.UserID).Error; err != nil {
+	if err := h.db.First(&user, userID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
