@@ -143,7 +143,7 @@ func setupRoutes(
 	ticketHandler *handlers.TicketHandler,
 	updateHandler *handlers.UpdateHandler,
 	emailHandler *handlers.EmailHandler,
-	whatsappHandler *handlers.WhatsAppHandler,
+	waHandler *handlers.WhatsAppHandler,
 	reportHandler *handlers.ReportHandler,
 ) {
 	// Public routes
