@@ -27,26 +27,24 @@ func NewActionHandler(db *gorm.DB, messageSender *MessageSender, wahaClient *Wah
 func (h *ActionHandler) HandleCreateTicket(sessionName, fromPhone, content string) error {
 	var customer *models.Customer
 	var customerID uint
+	foundCustomer := false
 
 	// Try to find customer by phone number
 	var engineerPhone models.EngineerWAPhone
 	if err := h.db.Where("phone_number = ?", fromPhone).First(&engineerPhone).Error; err == nil {
 		// Phone belongs to an engineer
 		var engineer models.Engineer
-		if err := h.db.First(&engineer, engineerPhone.EngineerID).Error; err == nil {
-			if engineer.CustomerID != nil {
-				customerID = *engineer.CustomerID
-				if err := h.db.First(&customer, customerID).Error; err != nil {
-					return fmt.Errorf("customer not found")
-				}
+		if err := h.db.First(&engineer, engineerPhone.EngineerID).Error; err == nil && engineer.CustomerID != nil {
+			customerID = *engineer.CustomerID
+			if err := h.db.First(&customer, customerID).Error; err == nil {
+				foundCustomer = true
 			} else {
-				// If engineer has no specific customer, we can't infer customer from engineer
-				// Fall back to the default lookup
-				goto CustomerLookup
+				return fmt.Errorf("customer not found")
 			}
 		}
-	} else {
-	CustomerLookup:
+	}
+	
+	if !foundCustomer {
 		// Try to find customer by matching phone in customer contacts
 		// For now, assign to first active customer
 		if err := h.db.Where("is_active = ?", true).First(&customer).Error; err != nil {
