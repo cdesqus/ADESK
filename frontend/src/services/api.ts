@@ -145,7 +145,7 @@ class ApiService {
   }
 
   async updateTicket(id: string, data: Partial<Ticket>): Promise<Ticket> {
-    const response = await this.api.patch<Ticket>(`/tickets/${id}`, data);
+    const response = await this.api.put<Ticket>(`/tickets/${id}`, data);
     return response.data;
   }
 
@@ -191,7 +191,7 @@ class ApiService {
   }
 
   async updateCustomer(id: string, data: Partial<Customer>): Promise<Customer> {
-    const response = await this.api.patch<Customer>(`/customers/${id}`, data);
+    const response = await this.api.put<Customer>(`/customers/${id}`, data);
     return response.data;
   }
 
@@ -222,7 +222,7 @@ class ApiService {
   }
 
   async updateEngineer(id: string, data: Partial<Engineer>): Promise<Engineer> {
-    const response = await this.api.patch<Engineer>(`/engineers/${id}`, data);
+    const response = await this.api.put<Engineer>(`/engineers/${id}`, data);
     return response.data;
   }
 
@@ -316,8 +316,8 @@ class ApiService {
     groupId?: string
   ): Promise<EngineerWAPhone> {
     const response = await this.api.post<EngineerWAPhone>(
-      '/whatsapp/engineer-phones',
-      { engineerId, phoneNumber, groupId }
+      `/whatsapp/engineers/${engineerId}/phone`,
+      { phone_number: phoneNumber, group_id: groupId }
     );
     return response.data;
   }

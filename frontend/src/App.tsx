@@ -43,6 +43,7 @@ function App() {
             <MainLayout>
               <Routes>
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/tickets" element={<DashboardPage />} />
                 <Route path="/tickets/:id" element={<TicketDetailPage />} />
                 <Route path="/customers" element={<CustomersPage />} />
                 <Route path="/engineers" element={<EngineersPage />} />

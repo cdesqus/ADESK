@@ -46,7 +46,7 @@ func (h *CustomerHandler) CreateCustomer(c *gin.Context) {
 // GET /api/customers?page=1&limit=10
 func (h *CustomerHandler) GetCustomers(c *gin.Context) {
 	page := c.DefaultQuery("page", "1")
-	limit := c.DefaultQuery("limit", "10")
+	limit := c.DefaultQuery("limit", c.DefaultQuery("pageSize", "10"))
 	isActive := c.Query("is_active")
 
 	pageNum, err := strconv.Atoi(page)
@@ -74,11 +74,17 @@ func (h *CustomerHandler) GetCustomers(c *gin.Context) {
 	var total int64
 	h.db.Model(&models.Customer{}).Count(&total)
 
+	totalPages := int(total) / limitNum
+	if int(total)%limitNum > 0 {
+		totalPages++
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"data":  customers,
-		"total": total,
-		"page":  pageNum,
-		"limit": limitNum,
+		"data":       customers,
+		"total":      total,
+		"page":       pageNum,
+		"pageSize":   limitNum,
+		"totalPages": totalPages,
 	})
 }
 

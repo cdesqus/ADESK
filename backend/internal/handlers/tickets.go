@@ -83,11 +83,12 @@ func (h *TicketHandler) CreateTicket(c *gin.Context) {
 // GET /api/tickets?customer_id=1&status=OPEN&priority=HIGH&engineer_id=1&page=1&limit=10
 func (h *TicketHandler) GetTickets(c *gin.Context) {
 	page := c.DefaultQuery("page", "1")
-	limit := c.DefaultQuery("limit", "10")
-	customerID := c.Query("customer_id")
+	limit := c.DefaultQuery("limit", c.DefaultQuery("pageSize", "10"))
+	customerID := c.DefaultQuery("customer_id", c.Query("customerId"))
 	status := c.Query("status")
 	priority := c.Query("priority")
-	engineerID := c.Query("engineer_id")
+	engineerID := c.DefaultQuery("engineer_id", c.Query("engineerId"))
+	search := c.Query("search")
 
 	pageNum, err := strconv.Atoi(page)
 	if err != nil || pageNum < 1 {
@@ -118,6 +119,11 @@ func (h *TicketHandler) GetTickets(c *gin.Context) {
 		query = query.Where("engineer_id = ?", engineerID)
 	}
 
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		query = query.Where("title ILIKE ? OR description ILIKE ?", searchPattern, searchPattern)
+	}
+
 	if err := query.Find(&tickets).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch tickets"})
 		return
@@ -137,13 +143,23 @@ func (h *TicketHandler) GetTickets(c *gin.Context) {
 	if engineerID != "" {
 		countQuery = countQuery.Where("engineer_id = ?", engineerID)
 	}
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		countQuery = countQuery.Where("title ILIKE ? OR description ILIKE ?", searchPattern, searchPattern)
+	}
 	countQuery.Count(&total)
 
+	totalPages := int(total) / limitNum
+	if int(total)%limitNum > 0 {
+		totalPages++
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"data":  tickets,
-		"total": total,
-		"page":  pageNum,
-		"limit": limitNum,
+		"data":       tickets,
+		"total":      total,
+		"page":       pageNum,
+		"pageSize":   limitNum,
+		"totalPages": totalPages,
 	})
 }
 

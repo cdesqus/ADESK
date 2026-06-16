@@ -182,10 +182,11 @@ func (h *WhatsAppHandler) GetSessions(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"sessions": sessions,
-		"count":    len(sessions),
-	})
+	if sessions == nil {
+		sessions = make([]models.WhatsAppSession, 0)
+	}
+
+	c.JSON(http.StatusOK, sessions)
 }
 
 // POST /api/whatsapp/webhook (from Waha Plus)

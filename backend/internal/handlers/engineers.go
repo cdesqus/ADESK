@@ -57,7 +57,7 @@ func (h *EngineerHandler) CreateEngineer(c *gin.Context) {
 // GET /api/engineers?customer_id=1&is_active=true&page=1&limit=10
 func (h *EngineerHandler) GetEngineers(c *gin.Context) {
 	page := c.DefaultQuery("page", "1")
-	limit := c.DefaultQuery("limit", "10")
+	limit := c.DefaultQuery("limit", c.DefaultQuery("pageSize", "10"))
 	customerID := c.Query("customer_id")
 	isActive := c.Query("is_active")
 
@@ -97,11 +97,17 @@ func (h *EngineerHandler) GetEngineers(c *gin.Context) {
 	}
 	countQuery.Count(&total)
 
+	totalPages := int(total) / limitNum
+	if int(total)%limitNum > 0 {
+		totalPages++
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"data":  engineers,
-		"total": total,
-		"page":  pageNum,
-		"limit": limitNum,
+		"data":       engineers,
+		"total":      total,
+		"page":       pageNum,
+		"pageSize":   limitNum,
+		"totalPages": totalPages,
 	})
 }
 
