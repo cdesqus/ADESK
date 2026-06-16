@@ -112,7 +112,7 @@ func (w *WahaClient) CreateSession(name string) error {
 }
 
 func (w *WahaClient) GetSessionQR(sessionName string) (string, error) {
-	url := fmt.Sprintf("%s/api/%s/auth/qr?format=raw", w.baseURL, sessionName)
+	url := fmt.Sprintf("%s/api/sessions/%s/auth/qr", w.baseURL, sessionName)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -152,7 +152,7 @@ func (w *WahaClient) GetSessionQR(sessionName string) (string, error) {
 }
 
 func (w *WahaClient) RequestPairingCode(sessionName string, phoneNumber string) (string, error) {
-	url := fmt.Sprintf("%s/api/%s/auth/request-code", w.baseURL, sessionName)
+	url := fmt.Sprintf("%s/api/sessions/%s/auth/request-code", w.baseURL, sessionName)
 	payload := map[string]string{"phoneNumber": phoneNumber}
 	data, _ := json.Marshal(payload)
 
