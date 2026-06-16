@@ -89,11 +89,10 @@ export interface TicketUpdate {
 export interface Customer {
   id: string;
   name: string;
-  email: string;
-  phone?: string;
-  address?: string;
   domain?: string;
-  company?: string;
+  email_support?: string;
+  address?: string;
+  is_active?: boolean;
   createdAt: string;
 }
 

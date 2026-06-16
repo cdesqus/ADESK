@@ -11,7 +11,7 @@ export const CustomersPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', email: '', company: '', address: '' });
+  const [formData, setFormData] = useState({ name: '', domain: '', email_support: '', address: '' });
   const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
@@ -39,10 +39,10 @@ export const CustomersPage: React.FC = () => {
   };
 
   const handleAdd = async () => {
-    if (!formData.name || !formData.email) return;
+    if (!formData.name) return;
     try {
       await apiService.createCustomer(formData);
-      setFormData({ name: '', email: '', company: '', address: '' });
+      setFormData({ name: '', domain: '', email_support: '', address: '' });
       setIsAdding(false);
       fetchCustomers();
     } catch (err) {
@@ -54,7 +54,7 @@ export const CustomersPage: React.FC = () => {
     try {
       await apiService.updateCustomer(id, formData);
       setEditingId(null);
-      setFormData({ name: '', email: '', company: '', address: '' });
+      setFormData({ name: '', domain: '', email_support: '', address: '' });
       fetchCustomers();
     } catch (err) {
       console.error('Failed to update customer:', err);
@@ -73,7 +73,7 @@ export const CustomersPage: React.FC = () => {
 
   const handleEdit = (customer: Customer) => {
     setEditingId(customer.id);
-    setFormData({ name: customer.name, email: customer.email, company: customer.company || '', address: customer.address || '' });
+    setFormData({ name: customer.name, domain: customer.domain || '', email_support: customer.email_support || '', address: customer.address || '' });
   };
 
   return (
@@ -105,15 +105,15 @@ export const CustomersPage: React.FC = () => {
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
             <Input
-              placeholder="Email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="Email Domain (e.g. kaumtech.com) - Used for auto-routing tickets"
+              value={formData.domain}
+              onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
             />
             <Input
-              placeholder="Company"
-              value={formData.company}
-              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+              placeholder="Support Email - For monthly reports"
+              type="email"
+              value={formData.email_support}
+              onChange={(e) => setFormData({ ...formData, email_support: e.target.value })}
             />
             <Input
               placeholder="Address"
@@ -122,7 +122,7 @@ export const CustomersPage: React.FC = () => {
             />
             <div className="flex gap-3">
               <Button onClick={handleAdd}>Create</Button>
-              <Button variant="outline" onClick={() => { setIsAdding(false); setFormData({ name: '', email: '', company: '', address: '' }); }}>
+              <Button variant="outline" onClick={() => { setIsAdding(false); setFormData({ name: '', domain: '', email_support: '', address: '' }); }}>
                 Cancel
               </Button>
             </div>
@@ -144,8 +144,8 @@ export const CustomersPage: React.FC = () => {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Company</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Domain</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Support Email</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Address</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Actions</th>
                 </tr>
@@ -154,8 +154,8 @@ export const CustomersPage: React.FC = () => {
                 {customers.map((customer) => (
                   <tr key={customer.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{customer.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{customer.email}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{customer.company || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{customer.domain || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{customer.email_support || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.address || '-'}</td>
                     <td className="px-6 py-4 text-sm">
                       <div className="flex gap-2">
@@ -178,12 +178,12 @@ export const CustomersPage: React.FC = () => {
               <h4 className="text-sm font-semibold text-gray-900 mb-4">Edit Customer</h4>
               <div className="space-y-4">
                 <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Name" />
-                <Input value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="Email" />
-                <Input value={formData.company} onChange={(e) => setFormData({ ...formData, company: e.target.value })} placeholder="Company" />
+                <Input value={formData.domain} onChange={(e) => setFormData({ ...formData, domain: e.target.value })} placeholder="Email Domain (e.g. kaumtech.com)" />
+                <Input value={formData.email_support} onChange={(e) => setFormData({ ...formData, email_support: e.target.value })} placeholder="Support Email" />
                 <Input value={formData.address || ''} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Address" />
                 <div className="flex gap-3">
                   <Button onClick={() => handleUpdate(editingId)}>Save</Button>
-                  <Button variant="outline" onClick={() => { setEditingId(null); setFormData({ name: '', email: '', company: '', address: '' }); }}>
+                  <Button variant="outline" onClick={() => { setEditingId(null); setFormData({ name: '', domain: '', email_support: '', address: '' }); }}>
                     Cancel
                   </Button>
                 </div>
