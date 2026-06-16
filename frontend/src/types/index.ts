@@ -99,6 +99,7 @@ export interface Customer {
 
 export interface Engineer {
   id: string;
+  customer_id?: number;
   name: string;
   email: string;
   phone?: string;
@@ -106,6 +107,7 @@ export interface Engineer {
   specialization?: string;
   status?: 'active' | 'inactive';
   createdAt: string;
+  customer?: Customer;
 }
 
 export interface PaginatedResponse<T> {

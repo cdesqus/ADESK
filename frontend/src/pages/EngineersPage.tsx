@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Engineer, PaginatedResponse } from '@/types';
+import { Engineer, PaginatedResponse, Customer } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -12,12 +12,23 @@ export const EngineersPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', email: '', specialty: '', status: 'active' as 'active' | 'inactive' });
+  const [formData, setFormData] = useState({ name: '', email: '', specialty: '', status: 'active' as 'active' | 'inactive', customer_id: '' });
   const [isAdding, setIsAdding] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
   useEffect(() => {
     fetchEngineers();
+    fetchCustomers();
   }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await apiService.getCustomers(1, 100);
+      setCustomers(response.data);
+    } catch (err) {
+      console.error('Failed to fetch customers:', err);
+    }
+  };
 
   const fetchEngineers = async (page: number = 1) => {
     try {
@@ -40,10 +51,13 @@ export const EngineersPage: React.FC = () => {
   };
 
   const handleAdd = async () => {
-    if (!formData.name || !formData.email) return;
+    if (!formData.name || !formData.email || !formData.customer_id) return;
     try {
-      await apiService.createEngineer(formData);
-      setFormData({ name: '', email: '', specialty: '', status: 'active' as 'active' | 'inactive' });
+      await apiService.createEngineer({
+        ...formData,
+        customer_id: parseInt(formData.customer_id)
+      });
+      setFormData({ name: '', email: '', specialty: '', status: 'active', customer_id: '' });
       setIsAdding(false);
       fetchEngineers();
     } catch (err) {
@@ -53,9 +67,12 @@ export const EngineersPage: React.FC = () => {
 
   const handleUpdate = async (id: string) => {
     try {
-      await apiService.updateEngineer(id, formData);
+      await apiService.updateEngineer(id, {
+        ...formData,
+        customer_id: parseInt(formData.customer_id)
+      });
       setEditingId(null);
-      setFormData({ name: '', email: '', specialty: '', status: 'active' as 'active' | 'inactive' });
+      setFormData({ name: '', email: '', specialty: '', status: 'active', customer_id: '' });
       fetchEngineers();
     } catch (err) {
       console.error('Failed to update engineer:', err);
@@ -74,7 +91,7 @@ export const EngineersPage: React.FC = () => {
 
   const handleEdit = (engineer: Engineer) => {
     setEditingId(engineer.id);
-    setFormData({ name: engineer.name, email: engineer.email, specialty: engineer.specialization || '', status: engineer.status || 'active' });
+    setFormData({ name: engineer.name, email: engineer.email, specialty: engineer.specialization || '', status: engineer.status || 'active', customer_id: engineer.customer_id?.toString() || '' });
   };
 
   return (
@@ -123,9 +140,18 @@ export const EngineersPage: React.FC = () => {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </Select>
+            <Select
+              value={formData.customer_id}
+              onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+            >
+              <option value="">Select Customer</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </Select>
             <div className="flex gap-3">
               <Button onClick={handleAdd}>Create</Button>
-              <Button variant="outline" onClick={() => { setIsAdding(false); setFormData({ name: '', email: '', specialty: '', status: 'active' as 'active' | 'inactive' }); }}>
+              <Button variant="outline" onClick={() => { setIsAdding(false); setFormData({ name: '', email: '', specialty: '', status: 'active', customer_id: '' }); }}>
                 Cancel
               </Button>
             </div>
@@ -147,6 +173,7 @@ export const EngineersPage: React.FC = () => {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Customer</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Email</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Specialty</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Status</th>
@@ -157,6 +184,7 @@ export const EngineersPage: React.FC = () => {
                 {engineers.map((engineer) => (
                   <tr key={engineer.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{engineer.name}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{engineer.customer?.name || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{engineer.email}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{engineer.specialization || '-'}</td>
                     <td className="px-6 py-4 text-sm">
@@ -191,9 +219,15 @@ export const EngineersPage: React.FC = () => {
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </Select>
+                <Select value={formData.customer_id} onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}>
+                  <option value="">Select Customer</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </Select>
                 <div className="flex gap-3">
                   <Button onClick={() => handleUpdate(editingId)}>Save</Button>
-                  <Button variant="outline" onClick={() => { setEditingId(null); setFormData({ name: '', email: '', specialty: '', status: 'active' as 'active' | 'inactive' }); }}>
+                  <Button variant="outline" onClick={() => { setEditingId(null); setFormData({ name: '', email: '', specialty: '', status: 'active', customer_id: '' }); }}>
                     Cancel
                   </Button>
                 </div>

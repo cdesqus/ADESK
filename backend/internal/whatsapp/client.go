@@ -80,7 +80,7 @@ func NewWahaClient(baseURL string) *WahaClient {
 }
 
 func (w *WahaClient) CreateSession(name string) error {
-	url := fmt.Sprintf("%s/api/sessions", w.baseURL)
+	url := fmt.Sprintf("%s/api/sessions/start", w.baseURL)
 	payload := map[string]string{"name": name}
 	data, _ := json.Marshal(payload)
 
