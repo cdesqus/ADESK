@@ -43,6 +43,7 @@ services:
       - WAHA_WEBHOOK_URL=http://backend:8080/api/whatsapp/webhook
       - WAHA_API_PORT=3000
       - WAHA_LOG_LEVEL=info
+      - WAHA_API_KEY=${WAHA_API_KEY:-aidesk-waha-secret-key}
     ports:
       - "3000:3000"
     depends_on:
@@ -71,6 +72,7 @@ services:
       WAHA_API_URL: http://waha:3000
       WAHA_API_PORT: 3000
       WAHA_WEBHOOK_URL: http://backend:8080/api/whatsapp/webhook
+      WAHA_API_KEY: ${WAHA_API_KEY:-aidesk-waha-secret-key}
       ENVIRONMENT: ${ENVIRONMENT:-development}
     ports:
       - "${SERVER_PORT:-8080}:8080"
