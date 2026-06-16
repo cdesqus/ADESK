@@ -80,7 +80,7 @@ func NewWahaClient(baseURL string) *WahaClient {
 }
 
 func (w *WahaClient) CreateSession(name string) error {
-	url := fmt.Sprintf("%s/api/sessions/start", w.baseURL)
+	url := fmt.Sprintf("%s/api/sessions", w.baseURL)
 	payload := map[string]string{"name": name}
 	data, _ := json.Marshal(payload)
 
@@ -93,8 +93,8 @@ func (w *WahaClient) CreateSession(name string) error {
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("Waha error: %s", string(body))
-		return fmt.Errorf("waha api error: status %d", resp.StatusCode)
+		log.Printf("Waha error creating session: %s (status %d)", string(body), resp.StatusCode)
+		return fmt.Errorf("waha api error: status %d, body: %s", resp.StatusCode, string(body))
 	}
 
 	return nil
