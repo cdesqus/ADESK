@@ -96,8 +96,7 @@ export const WhatsAppSettingsPage: React.FC = () => {
 
   const handleCreateSession = async (name: string): Promise<WhatsAppSession> => {
     const session = await apiService.createWASession(name);
-    const qrData = await apiService.getSessionQR(session.id);
-    return { ...session, qrCode: qrData.qrCode };
+    return session;
   };
 
   const handleSessionCreated = async (session: WhatsAppSession) => {
@@ -286,7 +285,7 @@ export const WhatsAppSettingsPage: React.FC = () => {
               ) : (
                 sessions.map((session) => (
                   <tr key={session.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{session.name}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{session.session_name}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{session.phoneNumber || '-'}</td>
                     <td className="px-6 py-4">
                       <SessionStatus status={session.status} phoneNumber={session.phoneNumber} />

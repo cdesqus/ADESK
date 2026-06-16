@@ -1,10 +1,10 @@
 export interface WhatsAppSession {
   id: string;
-  name: string;
+  session_name: string;
   phoneNumber: string;
-  status: 'active' | 'pending' | 'disconnected';
+  status: 'active' | 'pending' | 'disconnected' | 'UNKNOWN' | 'PENDING' | 'CONNECTED';
   createdAt: string; // ISO timestamp
-  qrCode?: string; // base64
+  qr_code?: string; // base64
 }
 
 export interface EngineerWAPhone {

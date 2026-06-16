@@ -2,14 +2,15 @@ import React from 'react';
 import { CheckCircle2, AlertCircle, Circle } from 'lucide-react';
 
 interface SessionStatusProps {
-  status: 'active' | 'pending' | 'disconnected';
+  status: string;
   phoneNumber?: string;
 }
 
 export const SessionStatus: React.FC<SessionStatusProps> = ({ status, phoneNumber }) => {
   const getStatusConfig = () => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'active':
+      case 'connected':
         return {
           icon: CheckCircle2,
           text: 'Active',

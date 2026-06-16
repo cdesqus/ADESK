@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import { WhatsAppSession } from '@/types/whatsapp';
 
 interface WhatsAppSessionModalProps {
@@ -161,33 +160,13 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
             <div className="space-y-6">
               <div className="text-center">
                 <p className="text-sm text-gray-600 mb-2">
-                  Session: <span className="font-semibold">{session.name}</span>
+                  Session: <span className="font-semibold">{session.session_name}</span>
                 </p>
-              </div>
-
-              {/* QR Code Section */}
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-3 text-center">Option 1: Scan QR Code</h4>
-                <QRCodeDisplay
-                  qrCode={session.qrCode || null}
-                  isLoading={isLoading}
-                  error={error}
-                  onRefresh={handleRefreshQR}
-                />
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">OR</span>
-                </div>
               </div>
 
               {/* Pairing Code Section */}
               <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-3 text-center">Option 2: Use Pairing Code</h4>
+                <h4 className="text-sm font-medium text-gray-900 mb-3 text-center">Use Pairing Code</h4>
                 <div className="space-y-3">
                   {pairingCode ? (
                     <div className="text-center">
