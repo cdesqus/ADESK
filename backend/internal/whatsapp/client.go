@@ -12,6 +12,7 @@ import (
 
 type WahaClient struct {
 	baseURL string
+	apiKey  string
 	client  *http.Client
 }
 
