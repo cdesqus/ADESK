@@ -58,7 +58,7 @@ export const EmailStatus: React.FC<EmailStatusProps> = ({
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Email Account</h3>
               <p className="text-lg font-medium text-gray-900 mt-1">
-                {settings?.emailAddress || settings?.username || 'Not configured'}
+                {settings?.username || 'Not configured'}
               </p>
               <p className="text-sm text-gray-600 mt-2">
                 Status:{' '}
