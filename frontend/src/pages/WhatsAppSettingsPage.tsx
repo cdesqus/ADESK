@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { WhatsAppSessionModal } from '@/components/WhatsAppSessionModal';
 import { SessionStatus } from '@/components/SessionStatus';
 import { EngineerPhoneForm } from '@/components/EngineerPhoneForm';
-import { AlertCircle, RefreshCw, Trash2, Phone, Check, X } from 'lucide-react';
+import { AlertCircle, RefreshCw, Trash2, Phone, Check, X, Smartphone } from 'lucide-react';
 
 export const WhatsAppSettingsPage: React.FC = () => {
   const [sessions, setSessions] = useState<WhatsAppSession[]>([]);
@@ -27,6 +27,7 @@ export const WhatsAppSettingsPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isTestingMessage, setIsTestingMessage] = useState<string | null>(null);
+  const [selectedSession, setSelectedSession] = useState<WhatsAppSession | undefined>(undefined);
 
   // Fetch all data on mount
   useEffect(() => {
@@ -100,9 +101,15 @@ export const WhatsAppSettingsPage: React.FC = () => {
   };
 
   const handleSessionCreated = async (session: WhatsAppSession) => {
-    setSessions([...sessions, session]);
+    if (sessions.some((s) => s.id === session.id)) {
+      setSessions(sessions.map((s) => (s.id === session.id ? session : s)));
+      setSuccessMessage('WhatsApp session updated successfully');
+    } else {
+      setSessions([...sessions, session]);
+      setSuccessMessage('WhatsApp session created successfully');
+    }
     setShowSessionModal(false);
-    setSuccessMessage('WhatsApp session created successfully');
+    setSelectedSession(undefined);
     setTimeout(() => setSuccessMessage(''), 3000);
   };
 
@@ -290,7 +297,21 @@ export const WhatsAppSettingsPage: React.FC = () => {
                     <td className="px-6 py-4">
                       <SessionStatus status={session.status} phoneNumber={session.phoneNumber} />
                     </td>
-                    <td className="px-6 py-4 text-sm">
+                    <td className="px-6 py-4 text-sm flex gap-2">
+                      {session.status.toLowerCase() === 'pending' && (
+                        <Button
+                          onClick={() => {
+                            setSelectedSession(session);
+                            setShowSessionModal(true);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="text-green-600 hover:bg-green-50"
+                        >
+                          <Smartphone className="w-4 h-4 mr-1" />
+                          Link Device
+                        </Button>
+                      )}
                       <Button
                         onClick={() => handleDeleteSession(session.id)}
                         variant="outline"
@@ -491,9 +512,13 @@ export const WhatsAppSettingsPage: React.FC = () => {
       {/* Session Modal */}
       <WhatsAppSessionModal
         isOpen={showSessionModal}
-        onClose={() => setShowSessionModal(false)}
+        onClose={() => {
+          setShowSessionModal(false);
+          setSelectedSession(undefined);
+        }}
         onSessionCreated={handleSessionCreated}
         onCreate={handleCreateSession}
+        existingSession={selectedSession}
       />
     </div>
   );

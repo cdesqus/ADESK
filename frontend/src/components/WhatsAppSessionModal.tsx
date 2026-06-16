@@ -12,6 +12,7 @@ interface WhatsAppSessionModalProps {
   isLoading?: boolean;
   error?: string;
   onCreate?: (name: string) => Promise<WhatsAppSession>;
+  existingSession?: WhatsAppSession;
 }
 
 type ModalStep = 'form' | 'qr' | 'waiting';
@@ -23,6 +24,7 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
   isLoading = false,
   error,
   onCreate,
+  existingSession,
 }) => {
   const [step, setStep] = useState<ModalStep>('form');
   const [sessionName, setSessionName] = useState('');
@@ -42,8 +44,11 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
       setFormError('');
       setPhoneNumber('');
       setPairingCode('');
+    } else if (existingSession) {
+      setSession(existingSession);
+      setStep('qr');
     }
-  }, [isOpen]);
+  }, [isOpen, existingSession]);
 
   const handleCreate = async () => {
     if (!sessionName.trim()) {
