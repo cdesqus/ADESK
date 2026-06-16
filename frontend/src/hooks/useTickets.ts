@@ -49,6 +49,19 @@ export const useTickets = () => {
     }
   }, []);
 
+  const createTicket = useCallback(async (data: Partial<Ticket>) => {
+    try {
+      setError(null);
+      const newTicket = await apiService.createTicket(data);
+      setTickets((prev) => [newTicket, ...prev]);
+      return newTicket;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to create ticket';
+      setError(errorMsg);
+      throw err;
+    }
+  }, []);
+
   const updateTicket = useCallback(async (id: string, data: Partial<Ticket>) => {
     try {
       setError(null);
@@ -64,12 +77,26 @@ export const useTickets = () => {
     }
   }, []);
 
+  const deleteTicket = useCallback(async (id: string) => {
+    try {
+      setError(null);
+      await apiService.deleteTicket(id);
+      setTickets((prev) => prev.filter((ticket) => ticket.id !== id));
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to delete ticket';
+      setError(errorMsg);
+      throw err;
+    }
+  }, []);
+
   return {
     tickets,
     isLoading,
     error,
     pagination,
     fetchTickets,
+    createTicket,
     updateTicket,
+    deleteTicket,
   };
 };

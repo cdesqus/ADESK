@@ -151,9 +151,18 @@ class ApiService {
     return response.data;
   }
 
+  async createTicket(data: Partial<Ticket>): Promise<Ticket> {
+    const response = await this.api.post<Ticket>('/tickets', data);
+    return response.data;
+  }
+
   async updateTicket(id: string, data: Partial<Ticket>): Promise<Ticket> {
     const response = await this.api.put<Ticket>(`/tickets/${id}`, data);
     return response.data;
+  }
+
+  async deleteTicket(id: string): Promise<void> {
+    await this.api.delete(`/tickets/${id}`);
   }
 
   async getTicketUpdates(ticketId: string): Promise<TicketUpdate[]> {

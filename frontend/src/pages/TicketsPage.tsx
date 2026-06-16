@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Link } from 'react-router-dom';
-import { Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Eye, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { CreateTicketModal } from '@/components/CreateTicketModal';
 
 const statusColors: Record<TicketStatus, { bg: string; text: string }> = {
   open: { bg: 'bg-blue-50', text: 'text-blue-800' },
@@ -24,7 +25,8 @@ const priorityColors: Record<TicketPriority, { bg: string; text: string }> = {
 };
 
 export const TicketsPage: React.FC = () => {
-  const { tickets, isLoading, error, pagination, fetchTickets } = useTickets();
+  const { tickets, isLoading, error, pagination, fetchTickets, createTicket } = useTickets();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [filters, setFilters] = useState({
     status: '',
     priority: '',
@@ -58,9 +60,15 @@ export const TicketsPage: React.FC = () => {
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-gray-900">Tickets</h1>
-        <p className="text-gray-600 mt-1">Manage and track all support tickets</p>
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-semibold text-gray-900">Tickets</h1>
+          <p className="text-gray-600 mt-1">Manage and track all support tickets</p>
+        </div>
+        <Button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Add Ticket
+        </Button>
       </div>
 
       {/* Filters */}
@@ -275,6 +283,15 @@ export const TicketsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Create Ticket Modal */}
+      <CreateTicketModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={async (data) => {
+          await createTicket(data);
+        }}
+      />
     </div>
   );
 };
