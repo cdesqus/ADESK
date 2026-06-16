@@ -70,9 +70,10 @@ type MessageEvent struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-func NewWahaClient(baseURL string) *WahaClient {
+func NewWahaClient(baseURL string, apiKey string) *WahaClient {
 	return &WahaClient{
 		baseURL: baseURL,
+		apiKey:  apiKey,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -84,7 +85,16 @@ func (w *WahaClient) CreateSession(name string) error {
 	payload := map[string]string{"name": name}
 	data, _ := json.Marshal(payload)
 
-	resp, err := w.client.Post(url, "application/json", bytes.NewReader(data))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if w.apiKey != "" {
+		req.Header.Set("X-Api-Key", w.apiKey)
+	}
+
+	resp, err := w.client.Do(req)
 	if err != nil {
 		log.Printf("Error creating session: %v", err)
 		return fmt.Errorf("failed to create session: %w", err)
@@ -103,10 +113,18 @@ func (w *WahaClient) CreateSession(name string) error {
 func (w *WahaClient) GetSessionQR(sessionName string) (string, error) {
 	url := fmt.Sprintf("%s/api/sessions/%s/qr", w.baseURL, sessionName)
 
-	resp, err := w.client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Printf("Error getting QR: %v", err)
-		return "", fmt.Errorf("failed to get QR: %w", err)
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	if w.apiKey != "" {
+		req.Header.Set("X-Api-Key", w.apiKey)
+	}
+
+	resp, err := w.client.Do(req)
+	if err != nil {
+		log.Printf("Error getting QR code: %v", err)
+		return "", fmt.Errorf("failed to get qr code: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -138,7 +156,16 @@ func (w *WahaClient) SendMessage(sessionName, to, message string) (string, error
 	}
 	data, _ := json.Marshal(payload)
 
-	resp, err := w.client.Post(url, "application/json", bytes.NewReader(data))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(data))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if w.apiKey != "" {
+		req.Header.Set("X-Api-Key", w.apiKey)
+	}
+
+	resp, err := w.client.Do(req)
 	if err != nil {
 		log.Printf("Error sending message: %v", err)
 		return "", fmt.Errorf("failed to send message: %w", err)
@@ -166,7 +193,15 @@ func (w *WahaClient) SendMessage(sessionName, to, message string) (string, error
 func (w *WahaClient) GetSessions() ([]Session, error) {
 	url := fmt.Sprintf("%s/api/sessions", w.baseURL)
 
-	resp, err := w.client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	if w.apiKey != "" {
+		req.Header.Set("X-Api-Key", w.apiKey)
+	}
+
+	resp, err := w.client.Do(req)
 	if err != nil {
 		log.Printf("Error getting sessions: %v", err)
 		return nil, fmt.Errorf("failed to get sessions: %w", err)
@@ -200,7 +235,13 @@ func (w *WahaClient) GetSessions() ([]Session, error) {
 
 func (w *WahaClient) DeleteSession(sessionName string) error {
 	url := fmt.Sprintf("%s/api/sessions/%s", w.baseURL, sessionName)
-	req, _ := http.NewRequest("DELETE", url, nil)
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	if w.apiKey != "" {
+		req.Header.Set("X-Api-Key", w.apiKey)
+	}
 
 	resp, err := w.client.Do(req)
 	if err != nil {
@@ -221,7 +262,15 @@ func (w *WahaClient) DeleteSession(sessionName string) error {
 func (w *WahaClient) CheckSessionStatus(sessionName string) (Session, error) {
 	url := fmt.Sprintf("%s/api/sessions/%s", w.baseURL, sessionName)
 
-	resp, err := w.client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return Session{}, fmt.Errorf("failed to create request: %w", err)
+	}
+	if w.apiKey != "" {
+		req.Header.Set("X-Api-Key", w.apiKey)
+	}
+
+	resp, err := w.client.Do(req)
 	if err != nil {
 		log.Printf("Error checking session status: %v", err)
 		return Session{}, fmt.Errorf("failed to check session status: %w", err)

@@ -44,10 +44,11 @@ type Config struct {
 	// Email Polling
 	EmailPollingInterval string
 
-	// WhatsApp - Waha Plus
+	// WhatsApp
 	WahaAPIURL     string
 	WahaAPIPort    string
 	WahaWebhookURL string
+	WahaAPIKey     string
 
 	// Reports
 	ReportGenerationTime string
@@ -137,6 +138,7 @@ func Load() *Config {
 		WahaAPIURL:     getEnv("WAHA_API_URL", "http://waha:3000"),
 		WahaAPIPort:    getEnv("WAHA_API_PORT", "3000"),
 		WahaWebhookURL: getEnv("WAHA_WEBHOOK_URL", "http://go-app:8000/api/whatsapp/webhook"),
+		WahaAPIKey:     getEnv("WAHA_API_KEY", ""),
 
 		// Reports
 		ReportGenerationTime: getEnv("REPORT_GENERATION_TIME", "08:00"),

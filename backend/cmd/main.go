@@ -64,7 +64,7 @@ func main() {
 	updateHandler := handlers.NewUpdateHandler(database)
 
 	// Initialize WhatsApp components
-	wahaClient := whatsapp.NewWahaClient(cfg.WahaAPIURL)
+	wahaClient := whatsapp.NewWahaClient(cfg.WahaAPIURL, cfg.WahaAPIKey)
 	messageSender := whatsapp.NewMessageSender(wahaClient, database)
 	actionHandler := whatsapp.NewActionHandler(database, messageSender, wahaClient)
 	whatsappHandler := handlers.NewWhatsAppHandler(database, wahaClient, messageSender, actionHandler)
