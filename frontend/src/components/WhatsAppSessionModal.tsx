@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { WhatsAppSession } from '@/types/whatsapp';
+import { apiService } from '@/services/api';
 
 interface WhatsAppSessionModalProps {
   isOpen: boolean;
@@ -82,7 +83,6 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
     setIsRequestingPairingCode(true);
     setFormError('');
     try {
-      // @ts-ignore
       const res = await apiService.requestPairingCode(session.id, phoneNumber);
       setPairingCode(res.pairingCode);
     } catch (err) {
