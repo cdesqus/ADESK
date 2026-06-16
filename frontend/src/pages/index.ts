@@ -6,3 +6,4 @@ export { EngineersPage } from './EngineersPage';
 export { ReportsPage } from './ReportsPage';
 export { EmailSettingsPage } from './EmailSettingsPage';
 export { WhatsAppSettingsPage } from './WhatsAppSettingsPage';
+export { TicketsPage } from './TicketsPage';

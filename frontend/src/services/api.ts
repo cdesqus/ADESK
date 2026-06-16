@@ -29,6 +29,7 @@ import {
   ReportData,
   ReportFilter,
 } from '@/types/reports';
+import { DashboardSummary } from '@/types/dashboard';
 
 class ApiService {
   private api: AxiosInstance;
@@ -136,6 +137,12 @@ class ApiService {
     const response = await this.api.get<PaginatedResponse<Ticket>>(
       `/tickets?${params.toString()}`
     );
+    return response.data;
+  }
+
+  // Dashboard endpoint
+  async getDashboardSummary(): Promise<DashboardSummary> {
+    const response = await this.api.get<DashboardSummary>('/dashboard/summary');
     return response.data;
   }
 

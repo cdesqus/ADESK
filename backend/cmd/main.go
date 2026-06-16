@@ -115,13 +115,16 @@ func main() {
 	reportScheduler := reports.NewReportScheduler(database, reportGenerator, reportMailer, reportRepository, cfg.SLAHours)
 	reportHandler := handlers.NewReportHandler(database, reportGenerator, reportRepository, reportScheduler, reportMailer)
 
+	// Initialize dashboard component
+	dashboardHandler := handlers.NewDashboardHandler(database)
+
 	// Start report scheduler
 	if err := reportScheduler.Start(); err != nil {
 		log.Printf("Warning: Failed to start report scheduler: %v", err)
 	}
 
 	// Routes
-	setupRoutes(router, cfg, authHandler, customerHandler, engineerHandler, ticketHandler, updateHandler, emailHandler, whatsappHandler, reportHandler)
+	setupRoutes(router, cfg, authHandler, customerHandler, engineerHandler, ticketHandler, updateHandler, emailHandler, whatsappHandler, reportHandler, dashboardHandler)
 
 	// Setup graceful shutdown
 	go setupGracefulShutdown(emailPoller, reportScheduler)
@@ -145,6 +148,7 @@ func setupRoutes(
 	emailHandler *handlers.EmailHandler,
 	waHandler *handlers.WhatsAppHandler,
 	reportHandler *handlers.ReportHandler,
+	dashboardHandler *handlers.DashboardHandler,
 ) {
 	// Public routes
 	auth := router.Group("/api/auth")
@@ -157,6 +161,12 @@ func setupRoutes(
 	protected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 
 	protected.GET("/auth/me", authHandler.Me)
+
+	// Dashboard routes
+	dashboard := protected.Group("/dashboard")
+	{
+		dashboard.GET("/summary", dashboardHandler.GetSummary)
+	}
 
 	// Customer routes
 	customers := protected.Group("/customers")
