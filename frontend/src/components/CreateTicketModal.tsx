@@ -105,22 +105,20 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose} />
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-        <div className="inline-block w-full max-w-2xl px-4 pt-5 pb-4 overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:p-6">
-          <div className="flex justify-between items-center mb-5">
-            <h3 className="text-lg font-medium leading-6 text-gray-900">Create Manual Ticket</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
-              <span className="sr-only">Close</span>
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 sm:p-0">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex justify-between items-center p-6 border-b border-gray-200 shrink-0">
+          <h3 className="text-lg font-medium leading-6 text-gray-900">Create Manual Ticket</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+            <span className="sr-only">Close</span>
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="p-6 overflow-y-auto">
+          <form id="create-ticket-form" onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
                 {error}
@@ -211,24 +209,26 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
               </div>
             </div>
 
-            <div className="mt-5 sm:mt-6 sm:flex sm:flex-row-reverse">
-              <Button
-                type="submit"
-                className="w-full sm:ml-3 sm:w-auto"
-                disabled={isLoading || !formData.title || !formData.customer_id}
-              >
-                {isLoading ? 'Creating...' : 'Create Ticket'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-3 w-full sm:mt-0 sm:w-auto"
-                onClick={onClose}
-              >
-                Cancel
-              </Button>
-            </div>
           </form>
+        </div>
+
+        <div className="p-6 border-t border-gray-200 shrink-0 bg-gray-50 sm:flex sm:flex-row-reverse gap-3">
+          <Button
+            type="submit"
+            form="create-ticket-form"
+            className="w-full sm:w-auto"
+            disabled={isLoading || !formData.title || !formData.customer_id}
+          >
+            {isLoading ? 'Creating...' : 'Create Ticket'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full mt-3 sm:mt-0 sm:w-auto"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
         </div>
       </div>
     </div>
