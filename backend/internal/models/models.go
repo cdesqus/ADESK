@@ -59,7 +59,7 @@ type SystemSetting struct {
 // Engineer represents a support engineer
 type Engineer struct {
 	ID            uint           `gorm:"primaryKey" json:"id"`
-	CustomerID    uint           `gorm:"index;not null" json:"customer_id"`
+	CustomerID    *uint          `gorm:"index" json:"customer_id,omitempty"`
 	Name          string         `gorm:"not null;index" json:"name"`
 	Email         string         `gorm:"not null" json:"email"`
 	WhatsappNumber string         `json:"whatsapp_number"`

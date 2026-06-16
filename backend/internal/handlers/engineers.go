@@ -29,20 +29,22 @@ func (h *EngineerHandler) CreateEngineer(c *gin.Context) {
 	}
 
 	// Validate required fields
-	if engineer.Name == "" || engineer.Email == "" || engineer.CustomerID == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "name, email, and customer_id are required"})
+	if engineer.Name == "" || engineer.Email == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name and email are required"})
 		return
 	}
 
-	// Verify customer exists
-	var customer models.Customer
-	if err := h.db.First(&customer, engineer.CustomerID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "customer not found"})
+	// Verify customer exists if customer_id is provided
+	if engineer.CustomerID != nil {
+		var customer models.Customer
+		if err := h.db.First(&customer, *engineer.CustomerID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "customer not found"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
-		return
 	}
 
 	if err := h.db.Create(&engineer).Error; err != nil {

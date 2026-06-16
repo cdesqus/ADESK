@@ -176,7 +176,7 @@ func (w *WahaClient) SendMessage(sessionName, to, message string) (string, error
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		log.Printf("Waha error: %s", string(body))
-		return "", fmt.Errorf("waha api error: status %d", resp.StatusCode)
+		return "", fmt.Errorf("waha api error: status %d, body: %s, apiKeyLen: %d", resp.StatusCode, string(body), len(w.apiKey))
 	}
 
 	var result map[string]interface{}

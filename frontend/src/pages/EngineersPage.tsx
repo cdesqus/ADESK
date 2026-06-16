@@ -51,11 +51,11 @@ export const EngineersPage: React.FC = () => {
   };
 
   const handleAdd = async () => {
-    if (!formData.name || !formData.email || !formData.customer_id) return;
+    if (!formData.name || !formData.email) return;
     try {
       await apiService.createEngineer({
         ...formData,
-        customer_id: parseInt(formData.customer_id)
+        customer_id: formData.customer_id ? parseInt(formData.customer_id) : undefined
       });
       setFormData({ name: '', email: '', specialty: '', status: 'active', customer_id: '' });
       setIsAdding(false);
@@ -69,7 +69,7 @@ export const EngineersPage: React.FC = () => {
     try {
       await apiService.updateEngineer(id, {
         ...formData,
-        customer_id: parseInt(formData.customer_id)
+        customer_id: formData.customer_id ? parseInt(formData.customer_id) : undefined
       });
       setEditingId(null);
       setFormData({ name: '', email: '', specialty: '', status: 'active', customer_id: '' });
@@ -144,7 +144,7 @@ export const EngineersPage: React.FC = () => {
               value={formData.customer_id}
               onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
             >
-              <option value="">Select Customer</option>
+              <option value="">All Customers (Unassigned)</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
@@ -220,7 +220,7 @@ export const EngineersPage: React.FC = () => {
                   <option value="inactive">Inactive</option>
                 </Select>
                 <Select value={formData.customer_id} onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}>
-                  <option value="">Select Customer</option>
+                  <option value="">All Customers (Unassigned)</option>
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}

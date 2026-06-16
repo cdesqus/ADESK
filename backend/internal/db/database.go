@@ -34,7 +34,7 @@ func InitDB(dsn string) (*gorm.DB, error) {
 
 // Migrate runs all migrations
 func Migrate(db *gorm.DB) error {
-	return db.AutoMigrate(
+	err := db.AutoMigrate(
 		&models.User{},
 		&models.Customer{},
 		&models.Engineer{},
@@ -47,6 +47,14 @@ func Migrate(db *gorm.DB) error {
 		&models.MonthlyReport{},
 		&models.SystemSetting{},
 	)
+	if err != nil {
+		return err
+	}
+	
+	// Ensure customer_id can be null for Engineers handling all customers
+	db.Exec("ALTER TABLE engineers ALTER COLUMN customer_id DROP NOT NULL;")
+	
+	return nil
 }
 
 // Close closes the database connection
