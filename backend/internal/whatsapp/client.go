@@ -151,6 +151,42 @@ func (w *WahaClient) GetSessionQR(sessionName string) (string, error) {
 	return "", fmt.Errorf("qr code not found in response")
 }
 
+func (w *WahaClient) RequestPairingCode(sessionName string, phoneNumber string) (string, error) {
+	url := fmt.Sprintf("%s/api/%s/auth/request-code", w.baseURL, sessionName)
+	payload := map[string]string{"phoneNumber": phoneNumber}
+	data, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if w.apiKey != "" {
+		req.Header.Set("X-Api-Key", w.apiKey)
+	}
+
+	resp, err := w.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to request pairing code: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("waha api error: status %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if code, ok := result["code"].(string); ok {
+		return code, nil
+	}
+	return "", fmt.Errorf("pairing code not found in response")
+}
+
 func (w *WahaClient) SendMessage(sessionName, to, message string) (string, error) {
 	url := fmt.Sprintf("%s/api/sessions/%s/messages/text", w.baseURL, sessionName)
 	payload := SendMessageRequest{
