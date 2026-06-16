@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { EmailStatus } from '@/components/EmailStatus';
+import { EmailSettingsModal } from '@/components/EmailSettingsModal';
 import { DomainMapping } from '@/components/DomainMapping';
 import { EmailHistory } from '@/components/EmailHistory';
 import { AlertCircle, Save, RefreshCw } from 'lucide-react';
@@ -33,6 +34,8 @@ export const EmailSettingsPage: React.FC = () => {
     page: 1,
     pageSize: 10,
   });
+
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   // Template variables
   const templateVariables = ['{CUSTOMER_NAME}', '{TICKET_ID}', '{SUPPORT_EMAIL}'];
@@ -149,6 +152,19 @@ export const EmailSettingsPage: React.FC = () => {
     }
   };
 
+  const handleSaveEmailSettings = async (newSettings: Partial<EmailSettings>) => {
+    try {
+      setErrorMessage('');
+      await apiService.updateEmailSettings(newSettings);
+      setSuccessMessage('Email settings updated successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      await loadAllData();
+    } catch (error) {
+      setErrorMessage('Failed to update email settings');
+      throw error;
+    }
+  };
+
   const handleUpdateDomain = async (customerId: string, domain: string) => {
     try {
       setErrorMessage('');
@@ -221,6 +237,7 @@ export const EmailSettingsPage: React.FC = () => {
             isLoading={isLoadingSettings}
             onTestConnection={handleTestConnection}
             onSync={handleSync}
+            onEdit={() => setIsSettingsModalOpen(true)}
             isSyncing={isSyncing}
             isTestingConnection={isTestingConnection}
           />
@@ -385,6 +402,13 @@ export const EmailSettingsPage: React.FC = () => {
           />
         </section>
       </div>
+
+      <EmailSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        onSave={handleSaveEmailSettings}
+        currentSettings={settings}
+      />
     </div>
   );
 };

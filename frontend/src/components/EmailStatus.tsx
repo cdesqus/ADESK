@@ -9,6 +9,7 @@ interface EmailStatusProps {
   isLoading?: boolean;
   onTestConnection?: () => void;
   onSync?: () => void;
+  onEdit?: () => void;
   isSyncing?: boolean;
   isTestingConnection?: boolean;
 }
@@ -18,6 +19,7 @@ export const EmailStatus: React.FC<EmailStatusProps> = ({
   isLoading,
   onTestConnection,
   onSync,
+  onEdit,
   isSyncing,
   isTestingConnection,
 }) => {
@@ -56,7 +58,7 @@ export const EmailStatus: React.FC<EmailStatusProps> = ({
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Email Account</h3>
               <p className="text-lg font-medium text-gray-900 mt-1">
-                {settings?.emailAddress || 'Not configured'}
+                {settings?.emailAddress || settings?.username || 'Not configured'}
               </p>
               <p className="text-sm text-gray-600 mt-2">
                 Status:{' '}
@@ -75,6 +77,15 @@ export const EmailStatus: React.FC<EmailStatusProps> = ({
             <Button
               variant="outline"
               size="sm"
+              onClick={onEdit}
+              className="flex items-center gap-2"
+            >
+              <Mail className="w-4 h-4" />
+              Edit Settings
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={onTestConnection}
               disabled={isTestingConnection || !isConnected}
               className="flex items-center gap-2"
@@ -86,7 +97,7 @@ export const EmailStatus: React.FC<EmailStatusProps> = ({
                 </>
               ) : (
                 <>
-                  <Mail className="w-4 h-4" />
+                  <RefreshCw className="w-4 h-4" />
                   Test Connection
                 </>
               )}

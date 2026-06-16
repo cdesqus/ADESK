@@ -290,9 +290,8 @@ class ApiService {
     return response.data;
   }
 
-  // WhatsApp endpoints
   async createWASession(name: string): Promise<WhatsAppSession> {
-    const response = await this.api.post<WhatsAppSession>('/whatsapp/sessions', { name });
+    const response = await this.api.post<WhatsAppSession>('/whatsapp/sessions', { session_name: name });
     return response.data;
   }
 

@@ -1,8 +1,12 @@
 export interface EmailSettings {
-  emailAddress: string;
+  host?: string;
+  port?: string;
+  username?: string;
+  password?: string;
+  isConfigured?: boolean;
   status: 'connected' | 'disconnected';
   lastSync: string; // ISO timestamp
-  pollingInterval: string;
+  pollingInterval: number;
 }
 
 export interface EmailLog {
