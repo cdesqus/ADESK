@@ -250,6 +250,7 @@ func setupRoutes(
 		wa.POST("/sessions", waHandler.CreateSession)
 		wa.GET("/sessions", waHandler.GetSessions)
 		wa.GET("/sessions/:id/qr", waHandler.GetSessionQR)
+		wa.POST("/sessions/:id/pairing-code", waHandler.RequestPairingCode)
 		wa.POST("/sessions/:id/verify", waHandler.VerifySession)
 		wa.DELETE("/sessions/:id", waHandler.DeleteSession)
 		wa.POST("/engineers/:id/phone", waHandler.AddEngineerPhone)

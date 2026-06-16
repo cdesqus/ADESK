@@ -115,6 +115,40 @@ func (h *WhatsAppHandler) GetSessionQR(c *gin.Context) {
 	})
 }
 
+type RequestPairingCodeRequest struct {
+	PhoneNumber string `json:"phone_number" binding:"required"`
+}
+
+// POST /api/whatsapp/sessions/:id/pairing-code
+func (h *WhatsAppHandler) RequestPairingCode(c *gin.Context) {
+	sessionID := c.Param("id")
+
+	var req RequestPairingCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
+		return
+	}
+
+	// Get session from database
+	var session models.WhatsAppSession
+	if err := h.db.First(&session, "id = ?", sessionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+		return
+	}
+
+	// Request pairing code from Waha Plus
+	code, err := h.wahaClient.RequestPairingCode(session.SessionName, req.PhoneNumber)
+	if err != nil {
+		log.Printf("Error requesting pairing code: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get pairing code", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"pairing_code": code,
+	})
+}
+
 // POST /api/whatsapp/sessions/:id/verify
 func (h *WhatsAppHandler) VerifySession(c *gin.Context) {
 	sessionID := c.Param("id")

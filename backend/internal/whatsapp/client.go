@@ -112,7 +112,7 @@ func (w *WahaClient) CreateSession(name string) error {
 }
 
 func (w *WahaClient) GetSessionQR(sessionName string) (string, error) {
-	url := fmt.Sprintf("%s/api/sessions/%s/qr", w.baseURL, sessionName)
+	url := fmt.Sprintf("%s/api/%s/auth/qr?format=raw", w.baseURL, sessionName)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -121,6 +121,7 @@ func (w *WahaClient) GetSessionQR(sessionName string) (string, error) {
 	if w.apiKey != "" {
 		req.Header.Set("X-Api-Key", w.apiKey)
 	}
+	req.Header.Set("Accept", "application/json")
 
 	resp, err := w.client.Do(req)
 	if err != nil {
@@ -140,10 +141,11 @@ func (w *WahaClient) GetSessionQR(sessionName string) (string, error) {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	if qr, ok := result["qr"].(map[string]interface{}); ok {
-		if code, ok := qr["code"].(string); ok {
-			return code, nil
-		}
+	if qr, ok := result["qr"].(string); ok {
+		return qr, nil
+	}
+	if data, ok := result["data"].(string); ok {
+		return data, nil
 	}
 
 	return "", fmt.Errorf("qr code not found in response")

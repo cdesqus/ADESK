@@ -314,6 +314,11 @@ class ApiService {
     return response.data;
   }
 
+  async requestPairingCode(sessionId: string, phoneNumber: string): Promise<{ pairingCode: string }> {
+    const response = await this.api.post<{ pairing_code: string }>(`/whatsapp/sessions/${sessionId}/pairing-code`, { phone_number: phoneNumber });
+    return { pairingCode: response.data.pairing_code };
+  }
+
   async deleteSession(sessionId: string): Promise<void> {
     await this.api.delete(`/whatsapp/sessions/${sessionId}`);
   }

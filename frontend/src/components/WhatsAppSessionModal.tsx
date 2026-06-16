@@ -29,6 +29,10 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
   const [session, setSession] = useState<WhatsAppSession | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [formError, setFormError] = useState('');
+  
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [pairingCode, setPairingCode] = useState('');
+  const [isRequestingPairingCode, setIsRequestingPairingCode] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -36,6 +40,8 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
       setSessionName('');
       setSession(null);
       setFormError('');
+      setPhoneNumber('');
+      setPairingCode('');
     }
   }, [isOpen]);
 
@@ -68,7 +74,23 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
 
   const handleRefreshQR = async () => {
     if (!session || !onCreate) return;
+    setPairingCode('');
     setStep('qr');
+  };
+
+  const handleRequestPairingCode = async () => {
+    if (!phoneNumber || !session) return;
+    setIsRequestingPairingCode(true);
+    setFormError('');
+    try {
+      // @ts-ignore
+      const res = await apiService.requestPairingCode(session.id, phoneNumber);
+      setPairingCode(res.pairingCode);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to request pairing code');
+    } finally {
+      setIsRequestingPairingCode(false);
+    }
   };
 
   const handleDismiss = () => {
@@ -136,22 +158,70 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
           )}
 
           {step === 'qr' && session && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-gray-600 mb-2">
                   Session: <span className="font-semibold">{session.name}</span>
                 </p>
               </div>
-              <QRCodeDisplay
-                qrCode={session.qrCode || null}
-                isLoading={isLoading}
-                error={error}
-                onRefresh={handleRefreshQR}
-              />
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-xs text-blue-700">
-                  Use your WhatsApp app to scan this QR code. The session will be marked as connected once scanned.
-                </p>
+
+              {/* QR Code Section */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-3 text-center">Option 1: Scan QR Code</h4>
+                <QRCodeDisplay
+                  qrCode={session.qrCode || null}
+                  isLoading={isLoading}
+                  error={error}
+                  onRefresh={handleRefreshQR}
+                />
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">OR</span>
+                </div>
+              </div>
+
+              {/* Pairing Code Section */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-3 text-center">Option 2: Use Pairing Code</h4>
+                <div className="space-y-3">
+                  {pairingCode ? (
+                    <div className="text-center">
+                      <p className="text-xs text-gray-600 mb-2">Your pairing code is:</p>
+                      <div className="text-2xl font-bold tracking-widest text-primary-600 bg-primary-50 py-3 rounded-lg border border-primary-100">
+                        {pairingCode}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Enter this code in your WhatsApp linked devices screen.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Input
+                        type="tel"
+                        placeholder="Phone Number (e.g., 628123456789)"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        disabled={isRequestingPairingCode}
+                      />
+                      <Button
+                        onClick={handleRequestPairingCode}
+                        disabled={!phoneNumber || isRequestingPairingCode}
+                        className="w-full"
+                      >
+                        {isRequestingPairingCode ? 'Requesting...' : 'Get Pairing Code'}
+                      </Button>
+                      <p className="text-xs text-gray-500 text-center">
+                        Include country code without '+' sign.
+                      </p>
+                    </>
+                  )}
+                  {formError && (
+                    <p className="text-sm text-red-600 text-center">{formError}</p>
+                  )}
+                </div>
               </div>
             </div>
           )}
