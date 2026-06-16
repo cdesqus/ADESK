@@ -34,12 +34,19 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, fromPhone, content strin
 		// Phone belongs to an engineer
 		var engineer models.Engineer
 		if err := h.db.First(&engineer, engineerPhone.EngineerID).Error; err == nil {
-			customerID = engineer.CustomerID
-			if err := h.db.First(&customer, engineer.CustomerID).Error; err != nil {
-				return fmt.Errorf("customer not found")
+			if engineer.CustomerID != nil {
+				customerID = *engineer.CustomerID
+				if err := h.db.First(&customer, customerID).Error; err != nil {
+					return fmt.Errorf("customer not found")
+				}
+			} else {
+				// If engineer has no specific customer, we can't infer customer from engineer
+				// Fall back to the default lookup
+				goto CustomerLookup
 			}
 		}
 	} else {
+	CustomerLookup:
 		// Try to find customer by matching phone in customer contacts
 		// For now, assign to first active customer
 		if err := h.db.Where("is_active = ?", true).First(&customer).Error; err != nil {

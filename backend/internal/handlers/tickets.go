@@ -57,7 +57,7 @@ func (h *TicketHandler) CreateTicket(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
 			return
 		}
-		if engineer.CustomerID != ticket.CustomerID {
+		if engineer.CustomerID != nil && *engineer.CustomerID != ticket.CustomerID {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "engineer does not belong to this customer"})
 			return
 		}
@@ -234,7 +234,7 @@ func (h *TicketHandler) UpdateTicket(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
 			return
 		}
-		if engineer.CustomerID != ticket.CustomerID {
+		if engineer.CustomerID != nil && *engineer.CustomerID != ticket.CustomerID {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "engineer does not belong to this customer"})
 			return
 		}
