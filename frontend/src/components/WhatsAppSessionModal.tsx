@@ -204,8 +204,10 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
                     <div className="border-4 border-white shadow-lg rounded-lg p-2 bg-white inline-block">
                       {qrCode.startsWith('data:image') ? (
                         <img src={qrCode} alt="WhatsApp QR Code" className="w-64 h-64 object-contain" />
-                      ) : (
+                      ) : qrCode.startsWith('<svg') ? (
                         <div dangerouslySetInnerHTML={{ __html: qrCode }} className="w-64 h-64" />
+                      ) : (
+                        <img src={`data:image/png;base64,${qrCode}`} alt="WhatsApp QR Code" className="w-64 h-64 object-contain" />
                       )}
                     </div>
                   ) : (
