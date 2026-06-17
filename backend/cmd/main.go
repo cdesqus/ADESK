@@ -41,6 +41,27 @@ func main() {
 	// Create seed data if database is empty
 	seedDatabase(database)
 
+	// Override config with DB settings
+	var settings []models.SystemSetting
+	if err := database.Find(&settings).Error; err == nil {
+		for _, s := range settings {
+			switch s.Key {
+			case "EMAIL_USER":
+				cfg.EmailUser = s.Value
+			case "EMAIL_PASSWORD":
+				cfg.EmailPassword = s.Value
+			case "EMAIL_IMAP_HOST":
+				cfg.EmailIMAPHost = s.Value
+			case "EMAIL_IMAP_PORT":
+				if p, err := strconv.Atoi(s.Value); err == nil {
+					cfg.EmailIMAPPort = p
+				}
+			case "EMAIL_POLLING_INTERVAL":
+				cfg.EmailPollingInterval = s.Value
+			}
+		}
+	}
+
 	// Set Gin mode
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)

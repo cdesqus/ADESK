@@ -166,22 +166,47 @@ class ApiService {
   }
 
   async getTicketUpdates(ticketId: string): Promise<TicketUpdate[]> {
-    const response = await this.api.get<TicketUpdate[]>(`/tickets/${ticketId}/updates`);
-    return response.data;
+    const response = await this.api.get<any[]>(`/tickets/${ticketId}/updates`);
+    const updates = response.data.filter((u: any) => u.action_type && u.action_type !== 'COMMENT');
+    return updates.map((u: any) => ({
+      id: u.id.toString(),
+      ticketId: u.ticket_id.toString(),
+      type: u.action_type === 'STATUS_CHANGE' ? 'status_change' : u.action_type.toLowerCase() as any,
+      oldValue: '',
+      newValue: u.message,
+      createdAt: u.created_at || u.createdAt,
+      user: u.engineer ? { id: u.engineer.id.toString(), name: u.engineer.name } : { id: '0', name: 'System' }
+    }));
   }
 
   // Comments endpoints
   async getTicketComments(ticketId: string): Promise<TicketComment[]> {
-    const response = await this.api.get<TicketComment[]>(`/tickets/${ticketId}/comments`);
-    return response.data;
+    const response = await this.api.get<any[]>(`/tickets/${ticketId}/updates`);
+    const comments = response.data.filter((u: any) => u.action_type === 'COMMENT' || !u.action_type);
+    return comments.map((c: any) => ({
+      id: c.id.toString(),
+      ticketId: c.ticket_id.toString(),
+      userId: c.engineer_id ? c.engineer_id.toString() : '',
+      content: c.message,
+      createdAt: c.created_at || c.createdAt,
+      user: c.engineer ? { id: c.engineer.id.toString(), name: c.engineer.name, email: c.engineer.email, role: 'engineer' as const, createdAt: c.engineer.created_at } : { id: '0', name: 'System', email: '', role: 'admin' as const, createdAt: '' }
+    }));
   }
 
   async addComment(ticketId: string, content: string): Promise<TicketComment> {
-    const response = await this.api.post<TicketComment>(
-      `/tickets/${ticketId}/comments`,
-      { content }
+    const response = await this.api.post<any>(
+      `/tickets/${ticketId}/updates`,
+      { message: content, action_type: 'COMMENT' }
     );
-    return response.data;
+    const c = response.data;
+    return {
+      id: c.id.toString(),
+      ticketId: c.ticket_id.toString(),
+      userId: c.engineer_id ? c.engineer_id.toString() : '',
+      content: c.message,
+      createdAt: c.created_at || c.createdAt,
+      user: c.engineer ? { id: c.engineer.id.toString(), name: c.engineer.name, email: c.engineer.email, role: 'engineer' as const, createdAt: c.engineer.created_at } : { id: '0', name: 'System', email: '', role: 'admin' as const, createdAt: '' }
+    };
   }
 
   // Customer endpoints
