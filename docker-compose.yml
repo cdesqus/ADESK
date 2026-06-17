@@ -47,6 +47,8 @@ services:
       - WHATSAPP_DEFAULT_ENGINE=NOWEB
     ports:
       - "3000:3000"
+    volumes:
+      - waha_sessions:/app/.sessions
     depends_on:
       - postgres
     networks:
@@ -107,6 +109,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  waha_sessions:
     driver: local
 
 networks:
