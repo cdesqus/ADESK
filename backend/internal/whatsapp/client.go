@@ -227,7 +227,12 @@ func (w *WahaClient) SendMessage(sessionName, to, message string) (string, error
 		return msgID, nil
 	}
 
-	return "", fmt.Errorf("message id not found in response")
+	if id, ok := result["id"].(string); ok {
+		return id, nil
+	}
+
+	// If no ID is returned but status was success, we just return empty ID
+	return "", nil
 }
 
 func (w *WahaClient) GetSessions() ([]Session, error) {
