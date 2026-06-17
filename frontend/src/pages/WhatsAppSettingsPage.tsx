@@ -298,7 +298,7 @@ export const WhatsAppSettingsPage: React.FC = () => {
                       <SessionStatus status={session.status} phoneNumber={session.phoneNumber} />
                     </td>
                     <td className="px-6 py-4 text-sm flex gap-2">
-                      {session.status.toLowerCase() === 'pending' && (
+                      {['pending', 'scan_qr_code'].includes(session.status.toLowerCase()) && (
                         <Button
                           onClick={() => {
                             setSelectedSession(session);

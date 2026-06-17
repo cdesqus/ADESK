@@ -11,6 +11,7 @@ export const SessionStatus: React.FC<SessionStatusProps> = ({ status, phoneNumbe
     switch (status.toLowerCase()) {
       case 'active':
       case 'connected':
+      case 'working':
         return {
           icon: CheckCircle2,
           text: 'Active',
@@ -19,6 +20,7 @@ export const SessionStatus: React.FC<SessionStatusProps> = ({ status, phoneNumbe
           badgeColor: 'bg-green-100 text-green-800',
         };
       case 'pending':
+      case 'scan_qr_code':
         return {
           icon: AlertCircle,
           text: 'Awaiting scan',
