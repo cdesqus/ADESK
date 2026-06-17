@@ -226,7 +226,7 @@ func (h *EmailHandler) GetEmailSettings(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"host":            h.cfg.EmailIMAPHost,
-		"port":            h.cfg.EmailIMAPPort,
+		"port":            strconv.Itoa(h.cfg.EmailIMAPPort),
 		"username":        h.cfg.EmailUser,
 		"isConfigured":    isConfigured,
 		"status":          status,

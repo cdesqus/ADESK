@@ -31,7 +31,7 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({
     if (isOpen && currentSettings) {
       setFormData({
         host: currentSettings.host || '',
-        port: currentSettings.port || '',
+        port: currentSettings.port?.toString() || '',
         username: currentSettings.username || '',
         password: '', // Don't populate password for security
         pollingInterval: currentSettings.pollingInterval?.toString() || '5',
@@ -55,7 +55,7 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({
       
       const payload: Partial<EmailSettings> = {
         host: formData.host,
-        port: formData.port,
+        port: formData.port.toString(),
         username: formData.username,
         pollingInterval: parseInt(formData.pollingInterval, 10),
       };
