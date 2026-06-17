@@ -251,42 +251,31 @@ func (h *EmailHandler) UpdateEmailSettings(c *gin.Context) {
 		return
 	}
 
-	envMap, err := godotenv.Read()
-	if err != nil {
-		envMap = make(map[string]string)
-	}
-
 	if req.Host != "" {
-		envMap["EMAIL_IMAP_HOST"] = req.Host
+		h.db.Save(&models.SystemSetting{Key: "EMAIL_IMAP_HOST", Value: req.Host, UpdatedAt: time.Now()})
 		h.cfg.EmailIMAPHost = req.Host
 	}
 	if req.Port != "" {
-		envMap["EMAIL_IMAP_PORT"] = req.Port
+		h.db.Save(&models.SystemSetting{Key: "EMAIL_IMAP_PORT", Value: req.Port, UpdatedAt: time.Now()})
 		if portNum, err := strconv.Atoi(req.Port); err == nil {
 			h.cfg.EmailIMAPPort = portNum
 		}
 	}
 	if req.Username != "" {
-		envMap["EMAIL_USER"] = req.Username
+		h.db.Save(&models.SystemSetting{Key: "EMAIL_USER", Value: req.Username, UpdatedAt: time.Now()})
 		h.cfg.EmailUser = req.Username
 	}
 	if req.Password != "" {
-		envMap["EMAIL_PASSWORD"] = req.Password
+		h.db.Save(&models.SystemSetting{Key: "EMAIL_PASSWORD", Value: req.Password, UpdatedAt: time.Now()})
 		h.cfg.EmailPassword = req.Password
 	}
 	if req.PollingInterval > 0 {
 		pollStr := strconv.Itoa(req.PollingInterval) + "m"
-		envMap["EMAIL_POLLING_INTERVAL"] = pollStr
+		h.db.Save(&models.SystemSetting{Key: "EMAIL_POLLING_INTERVAL", Value: pollStr, UpdatedAt: time.Now()})
 		h.cfg.EmailPollingInterval = pollStr
 	}
 
-	if err := godotenv.Write(envMap, ".env"); err != nil {
-		log.Printf("Failed to write to .env: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save settings to .env"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Email settings updated in .env. Please restart the backend to apply changes."})
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Email settings updated in Database. Please restart the backend to apply changes."})
 }
 
 // GET /api/email/domain-mappings

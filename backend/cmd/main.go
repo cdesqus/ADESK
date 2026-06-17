@@ -81,6 +81,26 @@ func main() {
 	)
 	emailHandler := handlers.NewEmailHandler(database, domainMatcher, smtpClient, cfg)
 
+	// Read email settings from SystemSetting to override env values
+	var setting models.SystemSetting
+	if err := database.Where("key = ?", "EMAIL_IMAP_HOST").First(&setting).Error; err == nil {
+		cfg.EmailIMAPHost = setting.Value
+	}
+	if err := database.Where("key = ?", "EMAIL_IMAP_PORT").First(&setting).Error; err == nil {
+		if portNum, err := strconv.Atoi(setting.Value); err == nil {
+			cfg.EmailIMAPPort = portNum
+		}
+	}
+	if err := database.Where("key = ?", "EMAIL_USER").First(&setting).Error; err == nil {
+		cfg.EmailUser = setting.Value
+	}
+	if err := database.Where("key = ?", "EMAIL_PASSWORD").First(&setting).Error; err == nil {
+		cfg.EmailPassword = setting.Value
+	}
+	if err := database.Where("key = ?", "EMAIL_POLLING_INTERVAL").First(&setting).Error; err == nil {
+		cfg.EmailPollingInterval = setting.Value
+	}
+
 	// Initialize and start email poller
 	var emailPoller *jobs.EmailPollerJob
 	if cfg.EmailUser != "" && cfg.EmailPassword != "" {
