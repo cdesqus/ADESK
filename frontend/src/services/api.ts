@@ -166,11 +166,12 @@ class ApiService {
   }
 
   async getTicketUpdates(ticketId: string): Promise<TicketUpdate[]> {
-    const response = await this.api.get<any[]>(`/tickets/${ticketId}/updates`);
-    const updates = response.data.filter((u: any) => u.action_type && u.action_type !== 'COMMENT');
+    const response = await this.api.get<any>(`/tickets/${ticketId}/updates`);
+    const updateList = response.data.data || [];
+    const updates = updateList.filter((u: any) => u.action_type && u.action_type !== 'COMMENT');
     return updates.map((u: any) => ({
       id: u.id.toString(),
-      ticketId: u.ticket_id.toString(),
+      ticketId: u.ticket_id ? u.ticket_id.toString() : ticketId,
       type: u.action_type === 'STATUS_CHANGE' ? 'status_change' : u.action_type.toLowerCase() as any,
       oldValue: '',
       newValue: u.message,
@@ -181,11 +182,12 @@ class ApiService {
 
   // Comments endpoints
   async getTicketComments(ticketId: string): Promise<TicketComment[]> {
-    const response = await this.api.get<any[]>(`/tickets/${ticketId}/updates`);
-    const comments = response.data.filter((u: any) => u.action_type === 'COMMENT' || !u.action_type);
+    const response = await this.api.get<any>(`/tickets/${ticketId}/updates`);
+    const updateList = response.data.data || [];
+    const comments = updateList.filter((u: any) => u.action_type === 'COMMENT' || !u.action_type);
     return comments.map((c: any) => ({
       id: c.id.toString(),
-      ticketId: c.ticket_id.toString(),
+      ticketId: c.ticket_id ? c.ticket_id.toString() : ticketId,
       userId: c.engineer_id ? c.engineer_id.toString() : '',
       content: c.message,
       createdAt: c.created_at || c.createdAt,
@@ -198,10 +200,11 @@ class ApiService {
       `/tickets/${ticketId}/updates`,
       { message: content, action_type: 'COMMENT' }
     );
+    // backend CreateUpdate returns the update object directly
     const c = response.data;
     return {
       id: c.id.toString(),
-      ticketId: c.ticket_id.toString(),
+      ticketId: c.ticket_id ? c.ticket_id.toString() : ticketId,
       userId: c.engineer_id ? c.engineer_id.toString() : '',
       content: c.message,
       createdAt: c.created_at || c.createdAt,
