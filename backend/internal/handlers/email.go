@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type EmailHandler struct {
@@ -252,26 +253,26 @@ func (h *EmailHandler) UpdateEmailSettings(c *gin.Context) {
 	}
 
 	if req.Host != "" {
-		h.db.Save(&models.SystemSetting{Key: "EMAIL_IMAP_HOST", Value: req.Host, UpdatedAt: time.Now()})
+		h.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&models.SystemSetting{Key: "EMAIL_IMAP_HOST", Value: req.Host, UpdatedAt: time.Now()})
 		h.cfg.EmailIMAPHost = req.Host
 	}
 	if req.Port != "" {
-		h.db.Save(&models.SystemSetting{Key: "EMAIL_IMAP_PORT", Value: req.Port, UpdatedAt: time.Now()})
+		h.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&models.SystemSetting{Key: "EMAIL_IMAP_PORT", Value: req.Port, UpdatedAt: time.Now()})
 		if portNum, err := strconv.Atoi(req.Port); err == nil {
 			h.cfg.EmailIMAPPort = portNum
 		}
 	}
 	if req.Username != "" {
-		h.db.Save(&models.SystemSetting{Key: "EMAIL_USER", Value: req.Username, UpdatedAt: time.Now()})
+		h.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&models.SystemSetting{Key: "EMAIL_USER", Value: req.Username, UpdatedAt: time.Now()})
 		h.cfg.EmailUser = req.Username
 	}
 	if req.Password != "" {
-		h.db.Save(&models.SystemSetting{Key: "EMAIL_PASSWORD", Value: req.Password, UpdatedAt: time.Now()})
+		h.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&models.SystemSetting{Key: "EMAIL_PASSWORD", Value: req.Password, UpdatedAt: time.Now()})
 		h.cfg.EmailPassword = req.Password
 	}
 	if req.PollingInterval > 0 {
 		pollStr := strconv.Itoa(req.PollingInterval) + "m"
-		h.db.Save(&models.SystemSetting{Key: "EMAIL_POLLING_INTERVAL", Value: pollStr, UpdatedAt: time.Now()})
+		h.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&models.SystemSetting{Key: "EMAIL_POLLING_INTERVAL", Value: pollStr, UpdatedAt: time.Now()})
 		h.cfg.EmailPollingInterval = pollStr
 	}
 
