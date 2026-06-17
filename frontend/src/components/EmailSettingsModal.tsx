@@ -23,6 +23,7 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({
     username: '',
     password: '',
     pollingInterval: '5',
+    openAIKey: '',
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -35,6 +36,7 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({
         username: currentSettings.username || '',
         password: '', // Don't populate password for security
         pollingInterval: currentSettings.pollingInterval?.toString() || '5',
+        openAIKey: currentSettings.openAIKey || '',
       });
       setError('');
     }
@@ -58,6 +60,7 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({
         port: formData.port.toString(),
         username: formData.username,
         pollingInterval: parseInt(formData.pollingInterval, 10),
+        openAIKey: formData.openAIKey,
       };
       
       if (formData.password) {
@@ -164,6 +167,21 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({
               />
               <p className="mt-1 text-xs text-gray-500">
                 For Gmail or Microsoft 365, use an App Password.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-gray-100">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                OpenAI API Key (Optional)
+              </label>
+              <Input
+                type="password"
+                value={formData.openAIKey}
+                onChange={(e) => setFormData({ ...formData, openAIKey: e.target.value })}
+                placeholder={currentSettings?.openAIKey ? 'Leave blank to keep unchanged' : 'sk-...'}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Provide an OpenAI API key to enable AI-powered, context-aware auto-replies.
               </p>
             </div>
           </div>

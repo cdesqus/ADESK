@@ -7,6 +7,7 @@ export interface EmailSettings {
   status: 'connected' | 'disconnected';
   lastSync: string; // ISO timestamp
   pollingInterval: number;
+  openAIKey?: string;
 }
 
 export interface EmailLog {

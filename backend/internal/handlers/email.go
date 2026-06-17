@@ -132,7 +132,7 @@ func (h *EmailHandler) ProcessEmailWithLogging(emailMsg *email.EmailMessage) (*m
 	if ticket != nil {
 		var customer models.Customer
 		if err := h.db.First(&customer, ticket.CustomerID).Error; err == nil {
-			if err := h.smtpClient.SendAutoReply(emailMsg.From, emailMsg.Subject, ticket.ID, &customer); err != nil {
+			if err := h.smtpClient.SendAutoReply(emailMsg.From, emailMsg.Subject, ticket.ID, &customer, emailMsg.Body, h.cfg.OpenAIKey); err != nil {
 				log.Printf("Failed to send auto-reply: %v", err)
 				// Don't fail if auto-reply fails, just log it
 			}
@@ -234,6 +234,7 @@ func (h *EmailHandler) GetEmailSettings(c *gin.Context) {
 		"status":          status,
 		"lastSync":        time.Now(),
 		"pollingInterval": pollingInterval,
+		"openAIKey":       h.cfg.OpenAIKey,
 	})
 }
 
@@ -245,6 +246,7 @@ func (h *EmailHandler) UpdateEmailSettings(c *gin.Context) {
 		Username        string `json:"username"`
 		Password        string `json:"password"`
 		PollingInterval int    `json:"pollingInterval"`
+		OpenAIKey       string `json:"openAIKey"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -301,6 +303,13 @@ func (h *EmailHandler) UpdateEmailSettings(c *gin.Context) {
 			return
 		}
 		h.cfg.EmailPollingInterval = pollStr
+	}
+	if req.OpenAIKey != "" {
+		if err := saveSetting("OPENAI_API_KEY", req.OpenAIKey); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save OpenAI key", "details": err.Error()})
+			return
+		}
+		h.cfg.OpenAIKey = req.OpenAIKey
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Email settings updated in Database. Please restart the backend to apply changes."})

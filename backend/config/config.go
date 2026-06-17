@@ -58,6 +58,9 @@ type Config struct {
 
 	// Environment
 	Environment string
+
+	// AI Configuration
+	OpenAIKey string
 }
 
 func Load() *Config {
@@ -148,6 +151,7 @@ func Load() *Config {
 
 		// Environment
 		Environment: getEnv("ENVIRONMENT", "development"),
+		OpenAIKey:   getEnv("OPENAI_API_KEY", ""),
 	}
 
 	// Validate required env vars in production
