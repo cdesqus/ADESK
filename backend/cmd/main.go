@@ -314,6 +314,7 @@ func setupRoutes(
 		wa.DELETE("/sessions/:id", waHandler.DeleteSession)
 		wa.POST("/engineers/:id/phone", waHandler.AddEngineerPhone)
 		wa.GET("/engineer-phones", waHandler.GetEngineerPhones)
+		wa.POST("/test-message", waHandler.TestMessage)
 		wa.GET("/webhook/status", waHandler.GetHookStatus)
 		wa.GET("/logs", waHandler.GetLogs)
 	}

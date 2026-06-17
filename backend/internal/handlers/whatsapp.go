@@ -508,3 +508,47 @@ func (h *WhatsAppHandler) GetHookStatus(c *gin.Context) {
 		"errorLog":      []string{},
 	})
 }
+
+// POST /api/whatsapp/test-message
+func (h *WhatsAppHandler) TestMessage(c *gin.Context) {
+	var req struct {
+		SessionID   string `json:"sessionId"`
+		PhoneNumber string `json:"phoneNumber"`
+		Message     string `json:"message"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request"})
+		return
+	}
+
+	// Verify session exists
+	var session models.WhatsAppSession
+	if err := h.db.First(&session, "id = ?", req.SessionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "session not found"})
+		return
+	}
+
+	// Format phone number
+	var number strings.Builder
+	for _, r := range req.PhoneNumber {
+		if r >= '0' && r <= '9' {
+			number.WriteRune(r)
+		}
+	}
+	
+	if number.Len() == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid phone number"})
+		return
+	}
+	chatId := number.String() + "@c.us"
+
+	// Send message
+	err := h.wahaClient.SendMessage(session.SessionName, chatId, req.Message)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Message sent"})
+}

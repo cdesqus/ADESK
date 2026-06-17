@@ -126,7 +126,7 @@ export const TicketDetailPage: React.FC = () => {
         <div className="mb-6">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
             <div>
-              <p className="text-sm font-medium text-gray-600 mb-2">Ticket ID: {ticket.id.slice(0, 8)}</p>
+              <p className="text-sm font-medium text-gray-600 mb-2">Ticket ID: {String(ticket.id).slice(0, 8)}</p>
               <h1 className="text-3xl font-semibold text-gray-900">{ticket.title}</h1>
             </div>
             <div>
