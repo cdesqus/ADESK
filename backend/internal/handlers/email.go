@@ -98,14 +98,12 @@ func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*mod
 
 	if existingTicketID > 0 {
 		// Append as comment
-		comment := models.Comment{
-			TicketID: existingTicketID,
-			Content:  emailMsg.Body,
-			// Since we don't have a specific User ID for the customer, we can leave UserID null or handle it differently
-			// Often systems have a "system user" or "customer user" ID. We'll just leave it empty if possible, or add a generic string if your model allows.
+		comment := models.Update{
+			TicketID:   existingTicketID,
+			Message:    emailMsg.Body,
+			ActionType: "COMMENT",
 		}
-		// Wait, models.Comment requires UserID to be valid?
-		// Let's create it.
+		
 		if err := h.db.Create(&comment).Error; err != nil {
 			log.Printf("Failed to append comment: %v", err)
 			// Proceed to return the ticket anyway
