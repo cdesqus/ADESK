@@ -36,6 +36,9 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
   const [pairingCode, setPairingCode] = useState('');
   const [isRequestingPairingCode, setIsRequestingPairingCode] = useState(false);
 
+  const [qrCode, setQrCode] = useState('');
+  const [isLoadingQR, setIsLoadingQR] = useState(false);
+
   useEffect(() => {
     if (!isOpen) {
       setStep('form');
@@ -44,11 +47,30 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
       setFormError('');
       setPhoneNumber('');
       setPairingCode('');
+      setQrCode('');
     } else if (existingSession) {
       setSession(existingSession);
       setStep('qr');
+      fetchQRCode(existingSession.id);
     }
   }, [isOpen, existingSession]);
+
+  const fetchQRCode = async (sessionId: string) => {
+    setIsLoadingQR(true);
+    setFormError('');
+    try {
+      const res = await apiService.getSessionQR(sessionId);
+      if (res.qrCode) {
+        setQrCode(res.qrCode);
+      } else {
+        setFormError('Failed to load QR code. Session might be starting.');
+      }
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to fetch QR code');
+    } finally {
+      setIsLoadingQR(false);
+    }
+  };
 
   const handleCreate = async () => {
     if (!sessionName.trim()) {
@@ -69,6 +91,7 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
         const newSession = await onCreate(sessionName);
         setSession(newSession);
         setStep('qr');
+        fetchQRCode(newSession.id);
       }
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create session');
@@ -78,9 +101,9 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
   };
 
   const handleRefreshQR = async () => {
-    if (!session || !onCreate) return;
+    if (!session) return;
     setPairingCode('');
-    setStep('qr');
+    fetchQRCode(session.id);
   };
 
   const handleRequestPairingCode = async () => {
@@ -167,6 +190,36 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
                 <p className="text-sm text-gray-600 mb-2">
                   Session: <span className="font-semibold">{session.session_name}</span>
                 </p>
+                <div className="mb-6 flex flex-col items-center justify-center">
+                  {isLoadingQR ? (
+                    <div className="w-64 h-64 bg-gray-100 rounded-lg flex items-center justify-center animate-pulse">
+                      <div className="w-8 h-8 border-3 border-gray-300 border-t-primary-700 rounded-full animate-spin"></div>
+                    </div>
+                  ) : qrCode ? (
+                    <div className="border-4 border-white shadow-lg rounded-lg p-2 bg-white inline-block">
+                      {qrCode.startsWith('data:image') ? (
+                        <img src={qrCode} alt="WhatsApp QR Code" className="w-64 h-64 object-contain" />
+                      ) : (
+                        <div dangerouslySetInnerHTML={{ __html: qrCode }} className="w-64 h-64" />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-64 h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center p-4">
+                      <p className="text-sm text-gray-500 text-center mb-4">
+                        QR Code not available yet
+                      </p>
+                    </div>
+                  )}
+                  <Button
+                    onClick={handleRefreshQR}
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    disabled={isLoadingQR}
+                  >
+                    Refresh QR Code
+                  </Button>
+                </div>
               </div>
 
               {/* Pairing Code Section */}

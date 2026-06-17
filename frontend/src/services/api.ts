@@ -310,8 +310,8 @@ class ApiService {
   }
 
   async getSessionQR(sessionId: string): Promise<{ qrCode: string }> {
-    const response = await this.api.get<{ qrCode: string }>(`/whatsapp/sessions/${sessionId}/qr`);
-    return response.data;
+    const response = await this.api.get<{ qr_code: string }>(`/whatsapp/sessions/${sessionId}/qr`);
+    return { qrCode: response.data.qr_code };
   }
 
   async requestPairingCode(sessionId: string, phoneNumber: string): Promise<{ pairingCode: string }> {

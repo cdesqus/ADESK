@@ -82,7 +82,7 @@ func NewWahaClient(baseURL string, apiKey string) *WahaClient {
 }
 
 func (w *WahaClient) CreateSession(name string) error {
-	url := fmt.Sprintf("%s/api/sessions", w.baseURL)
+	url := fmt.Sprintf("%s/api/sessions/start", w.baseURL)
 	payload := map[string]string{"name": name}
 	data, _ := json.Marshal(payload)
 
@@ -253,20 +253,9 @@ func (w *WahaClient) GetSessions() ([]Session, error) {
 		return nil, fmt.Errorf("waha api error: status %d", resp.StatusCode)
 	}
 
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	var sessions []Session
+	if err := json.NewDecoder(resp.Body).Decode(&sessions); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	sessions := make([]Session, 0)
-	if list, ok := result["data"].([]interface{}); ok {
-		for _, item := range list {
-			data, _ := json.Marshal(item)
-			var session Session
-			if err := json.Unmarshal(data, &session); err == nil {
-				sessions = append(sessions, session)
-			}
-		}
 	}
 
 	return sessions, nil
@@ -320,15 +309,9 @@ func (w *WahaClient) CheckSessionStatus(sessionName string) (Session, error) {
 		return Session{}, fmt.Errorf("waha api error: status %d", resp.StatusCode)
 	}
 
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return Session{}, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	data, _ := json.Marshal(result["session"])
 	var session Session
-	if err := json.Unmarshal(data, &session); err != nil {
-		return Session{}, fmt.Errorf("failed to parse session: %w", err)
+	if err := json.NewDecoder(resp.Body).Decode(&session); err != nil {
+		return Session{}, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return session, nil
