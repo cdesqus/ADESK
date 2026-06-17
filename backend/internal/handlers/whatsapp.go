@@ -120,10 +120,12 @@ func (h *WhatsAppHandler) GetSessionQR(c *gin.Context) {
 		wahaSession, checkErr := h.wahaClient.CheckSessionStatus(session.SessionName)
 		if checkErr == nil && wahaSession.Status == "WORKING" {
 			session.Status = "WORKING"
+			session.PhoneNumber = wahaSession.PhoneNumber
 			h.db.Save(&session)
 			c.JSON(http.StatusOK, gin.H{
 				"qr_code": "",
 				"status": "WORKING",
+				"phone_number": session.PhoneNumber,
 				"message": "Session is already connected",
 			})
 			return
@@ -208,9 +210,11 @@ func (h *WhatsAppHandler) VerifySession(c *gin.Context) {
 	}
 
 	// Update database
-	if wahaSession.Connected {
-		session.Status = "CONNECTED"
-		session.PhoneNumber = wahaSession.PhoneNumber
+	if wahaSession.Status == "WORKING" || wahaSession.Connected {
+		session.Status = "WORKING" // use WORKING to be consistent
+		if wahaSession.PhoneNumber != "" {
+			session.PhoneNumber = wahaSession.PhoneNumber
+		}
 	} else {
 		session.Status = wahaSession.Status
 	}
@@ -219,7 +223,7 @@ func (h *WhatsAppHandler) VerifySession(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":        session.Status,
 		"phone_number":  session.PhoneNumber,
-		"connected":     wahaSession.Connected,
+		"connected":     session.Status == "WORKING",
 	})
 }
 
@@ -284,6 +288,13 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 			var session models.WhatsAppSession
 			if err := h.db.First(&session, "session_name = ?", payload.Session).Error; err == nil {
 				session.Status = statusEvent.Status
+				if session.Status == "WORKING" && session.PhoneNumber == "" {
+					if wahaSession, err := h.wahaClient.CheckSessionStatus(payload.Session); err == nil {
+						if wahaSession.PhoneNumber != "" {
+							session.PhoneNumber = wahaSession.PhoneNumber
+						}
+					}
+				}
 				h.db.Save(&session)
 			}
 		}

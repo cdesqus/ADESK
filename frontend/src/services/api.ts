@@ -175,7 +175,7 @@ class ApiService {
       oldValue: '',
       newValue: u.message,
       createdAt: u.created_at || u.createdAt,
-      user: u.engineer ? { id: u.engineer.id.toString(), name: u.engineer.name } : { id: '0', name: 'System' }
+      user: u.engineer ? { id: u.engineer.id.toString(), name: u.engineer.name, email: u.engineer.email || '', role: 'engineer' as const, createdAt: u.engineer.created_at || '' } : { id: '0', name: 'System', email: 'system@aidesk', role: 'admin' as const, createdAt: new Date().toISOString() }
     }));
   }
 
@@ -189,7 +189,7 @@ class ApiService {
       userId: c.engineer_id ? c.engineer_id.toString() : '',
       content: c.message,
       createdAt: c.created_at || c.createdAt,
-      user: c.engineer ? { id: c.engineer.id.toString(), name: c.engineer.name, email: c.engineer.email, role: 'engineer' as const, createdAt: c.engineer.created_at } : { id: '0', name: 'System', email: '', role: 'admin' as const, createdAt: '' }
+      user: c.engineer ? { id: c.engineer.id.toString(), name: c.engineer.name, email: c.engineer.email || '', role: 'engineer' as const, createdAt: c.engineer.created_at || '' } : { id: '0', name: 'System', email: 'system@aidesk', role: 'admin' as const, createdAt: new Date().toISOString() }
     }));
   }
 
@@ -205,7 +205,7 @@ class ApiService {
       userId: c.engineer_id ? c.engineer_id.toString() : '',
       content: c.message,
       createdAt: c.created_at || c.createdAt,
-      user: c.engineer ? { id: c.engineer.id.toString(), name: c.engineer.name, email: c.engineer.email, role: 'engineer' as const, createdAt: c.engineer.created_at } : { id: '0', name: 'System', email: '', role: 'admin' as const, createdAt: '' }
+      user: c.engineer ? { id: c.engineer.id.toString(), name: c.engineer.name, email: c.engineer.email || '', role: 'engineer' as const, createdAt: c.engineer.created_at || '' } : { id: '0', name: 'System', email: 'system@aidesk', role: 'admin' as const, createdAt: new Date().toISOString() }
     };
   }
 

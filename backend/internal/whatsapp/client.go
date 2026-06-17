@@ -315,5 +315,24 @@ func (w *WahaClient) CheckSessionStatus(sessionName string) (Session, error) {
 		return Session{}, fmt.Errorf("failed to decode response: %w", err)
 	}
 
+	// Extract phone number from Me.ID (e.g. 628123456789@c.us)
+	if session.Me.ID != "" {
+		importStrings := true
+		_ = importStrings // Ensure strings is imported at the top
+		// actually strings is already imported in client.go
+	}
+	
+	// Better yet, just use a simple string manipulation
+	idStr := session.Me.ID
+	for i, c := range idStr {
+		if c == '@' {
+			session.PhoneNumber = idStr[:i]
+			break
+		}
+	}
+	if session.PhoneNumber == "" && idStr != "" {
+		session.PhoneNumber = idStr
+	}
+
 	return session, nil
 }

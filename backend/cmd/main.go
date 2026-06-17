@@ -91,19 +91,7 @@ func main() {
 	actionHandler := whatsapp.NewActionHandler(database, messageSender, wahaClient)
 	whatsappHandler := handlers.NewWhatsAppHandler(database, wahaClient, messageSender, actionHandler)
 
-	// Initialize email components
-	domainMatcher := email.NewDomainMatcher(database)
-	smtpClient := email.NewSMTPClient(
-		cfg.SMTPHost,
-		cfg.SMTPPort,
-		cfg.SMTPUser,
-		cfg.SMTPPassword,
-		cfg.SMTPUser, // Use email user as from address
-		cfg.EmailFromName,
-	)
-	emailHandler := handlers.NewEmailHandler(database, domainMatcher, smtpClient, cfg)
-
-	// Read email settings from SystemSetting to override env values
+	// Read email settings from SystemSetting to override env values BEFORE creating SMTP client
 	var setting models.SystemSetting
 	if err := database.Where("key = ?", "EMAIL_IMAP_HOST").First(&setting).Error; err == nil {
 		cfg.EmailIMAPHost = setting.Value
@@ -122,6 +110,34 @@ func main() {
 	if err := database.Where("key = ?", "EMAIL_POLLING_INTERVAL").First(&setting).Error; err == nil {
 		cfg.EmailPollingInterval = setting.Value
 	}
+
+	// Setup SMTP fallback
+	smtpUser := cfg.SMTPUser
+	if smtpUser == "" {
+		smtpUser = cfg.EmailUser
+	}
+	smtpPass := cfg.SMTPPassword
+	if smtpPass == "" {
+		smtpPass = cfg.EmailPassword
+	}
+	smtpHost := cfg.SMTPHost
+	if smtpHost == "smtp.gmail.com" && cfg.EmailIMAPHost != "" && cfg.EmailIMAPHost != "imap.gmail.com" {
+		// Attempt a guess if it's using default gmail but IMAP is not
+		smtpHost = strings.Replace(cfg.EmailIMAPHost, "imap.", "smtp.", 1)
+	}
+
+	// Initialize email components
+	domainMatcher := email.NewDomainMatcher(database)
+	smtpClient := email.NewSMTPClient(
+		smtpHost,
+		cfg.SMTPPort,
+		smtpUser,
+		smtpPass,
+		smtpUser, // Use email user as from address
+		cfg.EmailFromName,
+	)
+	emailHandler := handlers.NewEmailHandler(database, domainMatcher, smtpClient, cfg)
+
 
 	// Initialize and start email poller
 	var emailPoller *jobs.EmailPollerJob
