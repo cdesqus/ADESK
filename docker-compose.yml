@@ -76,6 +76,7 @@ services:
       WAHA_API_PORT: 3000
       WAHA_WEBHOOK_URL: http://backend:8080/api/whatsapp/webhook
       WAHA_API_KEY: ${WAHA_API_KEY:-aidesk-waha-secret-key}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ENVIRONMENT: ${ENVIRONMENT:-development}
     ports:
       - "${SERVER_PORT:-8080}:8080"
