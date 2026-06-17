@@ -60,7 +60,12 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
     setFormError('');
     try {
       const res = await apiService.getSessionQR(sessionId);
-      if (res.qrCode) {
+      if (res.status === 'WORKING' || res.status === 'CONNECTED') {
+        if (onSessionCreated && session) {
+          onSessionCreated({ ...session, status: 'WORKING' });
+        }
+        onClose();
+      } else if (res.qrCode) {
         setQrCode(res.qrCode);
       } else {
         setFormError('Failed to load QR code. Session might be starting.');

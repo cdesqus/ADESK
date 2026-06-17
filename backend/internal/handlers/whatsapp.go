@@ -102,6 +102,20 @@ func (h *WhatsAppHandler) GetSessionQR(c *gin.Context) {
 	qrCode, err := h.wahaClient.GetSessionQR(session.SessionName)
 	if err != nil {
 		log.Printf("Error getting QR code: %v", err)
+		
+		// If Waha says the session is already WORKING, update the database
+		wahaSession, checkErr := h.wahaClient.CheckSessionStatus(session.SessionName)
+		if checkErr == nil && wahaSession.Status == "WORKING" {
+			session.Status = "WORKING"
+			h.db.Save(&session)
+			c.JSON(http.StatusOK, gin.H{
+				"qr_code": "",
+				"status": "WORKING",
+				"message": "Session is already connected",
+			})
+			return
+		}
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get QR code", "details": err.Error()})
 		return
 	}
@@ -233,6 +247,24 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 	}
 
 	log.Printf("Received WhatsApp webhook: event=%s session=%s", payload.Event, payload.Session)
+
+	// Handle session.status events
+	if payload.Event == "session.status" {
+		var statusEvent struct {
+			Status string `json:"status"`
+		}
+		if err := json.Unmarshal(payload.Data, &statusEvent); err == nil {
+			log.Printf("Session status updated for %s: %s", payload.Session, statusEvent.Status)
+			
+			var session models.WhatsAppSession
+			if err := h.db.First(&session, "session_name = ?", payload.Session).Error; err == nil {
+				session.Status = statusEvent.Status
+				h.db.Save(&session)
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		return
+	}
 
 	// Only handle message events
 	if payload.Event != "message" {
