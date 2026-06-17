@@ -190,7 +190,7 @@ export const TicketsPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(ticket.createdAt || (ticket as any).created_at), { addSuffix: true })}
                     </td>
                     <td className="px-6 py-4">
                       <Link to={`/tickets/${ticket.id}`}>

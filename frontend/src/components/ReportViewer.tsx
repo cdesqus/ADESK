@@ -48,7 +48,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report }) => {
         <h2 className="text-2xl font-semibold text-gray-900">{report.customerName}</h2>
         <p className="text-gray-600 mt-1">{report.month} Report</p>
         <p className="text-xs text-gray-500 mt-2">
-          Generated {formatDistanceToNow(new Date(report.generatedAt), { addSuffix: true })}
+          Generated {formatDistanceToNow(new Date(report.generatedAt || (report as any).generated_at), { addSuffix: true })}
         </p>
       </div>
 

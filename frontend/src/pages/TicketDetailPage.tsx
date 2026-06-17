@@ -158,7 +158,7 @@ export const TicketDetailPage: React.FC = () => {
                 <div>
                   <p className="text-xs text-gray-600 uppercase tracking-wide">Created</p>
                   <p className="text-sm font-medium text-gray-900 mt-0.5">
-                    {format(new Date(ticket.createdAt), 'MMM d, yyyy HH:mm')}
+                    {format(new Date(ticket.createdAt || (ticket as any).created_at), 'MMM d, yyyy HH:mm')}
                   </p>
                 </div>
               </div>
@@ -226,7 +226,7 @@ export const TicketDetailPage: React.FC = () => {
                         {comment.user?.name || 'Unknown User'}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(comment.createdAt || (comment as any).created_at), { addSuffix: true })}
                       </p>
                     </div>
                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
@@ -272,7 +272,7 @@ export const TicketDetailPage: React.FC = () => {
                       {update.type === 'comment' && ' added a comment'}
                     </p>
                     <p className="text-gray-600 text-xs mt-0.5">
-                      {formatDistanceToNow(new Date(update.createdAt), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(update.createdAt || (update as any).created_at), { addSuffix: true })}
                     </p>
                   </div>
                 </div>

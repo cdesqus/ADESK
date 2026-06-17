@@ -313,7 +313,7 @@ export const ReportsPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4">
                           <p className="text-gray-700">
-                            {formatDistanceToNow(new Date(report.generatedAt), { addSuffix: true })}
+                            {formatDistanceToNow(new Date(report.generatedAt || (report as any).generated_at), { addSuffix: true })}
                           </p>
                         </td>
                         <td className="px-6 py-4">
