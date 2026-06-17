@@ -253,27 +253,53 @@ func (h *EmailHandler) UpdateEmailSettings(c *gin.Context) {
 		return
 	}
 
+	saveSetting := func(key, value string) error {
+		err := h.db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "key"}},
+			UpdateAll: true,
+		}).Create(&models.SystemSetting{Key: key, Value: value, UpdatedAt: time.Now()}).Error
+		if err != nil {
+			log.Printf("Failed to save setting %s: %v", key, err)
+		}
+		return err
+	}
+
 	if req.Host != "" {
-		h.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&models.SystemSetting{Key: "EMAIL_IMAP_HOST", Value: req.Host, UpdatedAt: time.Now()})
+		if err := saveSetting("EMAIL_IMAP_HOST", req.Host); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save host", "details": err.Error()})
+			return
+		}
 		h.cfg.EmailIMAPHost = req.Host
 	}
 	if req.Port != "" {
-		h.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&models.SystemSetting{Key: "EMAIL_IMAP_PORT", Value: req.Port, UpdatedAt: time.Now()})
+		if err := saveSetting("EMAIL_IMAP_PORT", req.Port); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save port", "details": err.Error()})
+			return
+		}
 		if portNum, err := strconv.Atoi(req.Port); err == nil {
 			h.cfg.EmailIMAPPort = portNum
 		}
 	}
 	if req.Username != "" {
-		h.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&models.SystemSetting{Key: "EMAIL_USER", Value: req.Username, UpdatedAt: time.Now()})
+		if err := saveSetting("EMAIL_USER", req.Username); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save username", "details": err.Error()})
+			return
+		}
 		h.cfg.EmailUser = req.Username
 	}
 	if req.Password != "" {
-		h.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&models.SystemSetting{Key: "EMAIL_PASSWORD", Value: req.Password, UpdatedAt: time.Now()})
+		if err := saveSetting("EMAIL_PASSWORD", req.Password); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save password", "details": err.Error()})
+			return
+		}
 		h.cfg.EmailPassword = req.Password
 	}
 	if req.PollingInterval > 0 {
 		pollStr := strconv.Itoa(req.PollingInterval) + "m"
-		h.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&models.SystemSetting{Key: "EMAIL_POLLING_INTERVAL", Value: pollStr, UpdatedAt: time.Now()})
+		if err := saveSetting("EMAIL_POLLING_INTERVAL", pollStr); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save polling interval", "details": err.Error()})
+			return
+		}
 		h.cfg.EmailPollingInterval = pollStr
 	}
 
