@@ -78,7 +78,8 @@ export const EmailHistory: React.FC<EmailHistoryProps> = ({
               </tr>
             ) : (
               emails.map((email) => {
-                const config = statusConfig[email.status];
+                const normalizedStatus = (email.status || 'unknown_domain').toLowerCase() as keyof typeof statusConfig;
+                const config = statusConfig[normalizedStatus] || statusConfig.failed;
                 const StatusIcon = config.icon;
 
                 return (
