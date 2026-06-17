@@ -67,9 +67,17 @@ func (sc *SMTPClient) SendAutoReply(toEmail, toName, subject string, ticketID ui
 	}
 
 	// Build reply subject
-	replySubject := "Re: " + subject
-	if !strings.HasPrefix(replySubject, "Re: Re: ") {
+	var replySubject string
+	if strings.HasPrefix(strings.ToLower(subject), "re:") {
+		replySubject = subject
+	} else {
 		replySubject = "Re: " + subject
+	}
+	
+	// Add ticket ID to subject if not present
+	ticketTag := fmt.Sprintf("[TK-%d]", ticketID)
+	if !strings.Contains(replySubject, ticketTag) {
+		replySubject = strings.Replace(replySubject, "Re: ", "Re: "+ticketTag+" ", 1)
 	}
 
 	// Create email message

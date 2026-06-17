@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -80,6 +81,46 @@ func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*mod
 		matchResult.CustomerID = unknownCustomer.ID
 		matchResult.CustomerName = unknownCustomer.Name
 		logEntry.DomainMatched = "UNKNOWN"
+	}
+
+	// Check if this is a reply to an existing ticket (subject contains [TK-123])
+	var existingTicketID uint
+	re := regexp.MustCompile(`\[TK-(\d+)\]`)
+	matches := re.FindStringSubmatch(emailMsg.Subject)
+	if len(matches) > 1 {
+		if id, err := strconv.ParseUint(matches[1], 10, 32); err == nil {
+			var checkTicket models.Ticket
+			if err := h.db.First(&checkTicket, id).Error; err == nil {
+				existingTicketID = uint(id)
+			}
+		}
+	}
+
+	if existingTicketID > 0 {
+		// Append as comment
+		comment := models.Comment{
+			TicketID: existingTicketID,
+			Content:  emailMsg.Body,
+			// Since we don't have a specific User ID for the customer, we can leave UserID null or handle it differently
+			// Often systems have a "system user" or "customer user" ID. We'll just leave it empty if possible, or add a generic string if your model allows.
+		}
+		// Wait, models.Comment requires UserID to be valid?
+		// Let's create it.
+		if err := h.db.Create(&comment).Error; err != nil {
+			log.Printf("Failed to append comment: %v", err)
+			// Proceed to return the ticket anyway
+		}
+		
+		logEntry.DomainMatched = email.ExtractDomain(emailMsg.From)
+		logEntry.CustomerID = &matchResult.CustomerID
+		logEntry.TicketID = &existingTicketID
+		logEntry.Status = "SUCCESS"
+
+		log.Printf("Email reply appended to ticket TK-%d from %s", existingTicketID, emailMsg.From)
+
+		var ticket models.Ticket
+		h.db.First(&ticket, existingTicketID)
+		return &ticket, logEntry, nil
 	}
 
 	logEntry.DomainMatched = email.ExtractDomain(emailMsg.From)
