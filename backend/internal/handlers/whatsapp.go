@@ -544,7 +544,7 @@ func (h *WhatsAppHandler) TestMessage(c *gin.Context) {
 	chatId := number.String() + "@c.us"
 
 	// Send message
-	err := h.wahaClient.SendMessage(session.SessionName, chatId, req.Message)
+	_, err := h.wahaClient.SendMessage(session.SessionName, chatId, req.Message)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
