@@ -62,7 +62,7 @@ func (ic *IMAPClient) FetchUnreadEmails() ([]*imap.Message, error) {
 	log.Printf("INBOX has %d messages, %d unseen", mbox.Messages, mbox.Unseen)
 
 	if mbox.Unseen == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("Connected successfully, but server reports INBOX has %d total messages and 0 unseen messages. Are you sure you logged into the correct email account?", mbox.Messages)
 	}
 
 	// Search for unread emails
@@ -75,7 +75,7 @@ func (ic *IMAPClient) FetchUnreadEmails() ([]*imap.Message, error) {
 	}
 
 	if len(uids) == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("Server reported %d unseen messages, but search for unseen returned 0. This is unusual.", mbox.Unseen)
 	}
 
 	seqset := new(imap.SeqSet)
