@@ -73,6 +73,23 @@ func ParseEmail(msg *imap.Message) (*EmailMessage, error) {
 	if err == nil && addr != nil {
 		senderEmail = addr.Address
 		senderName = addr.Name
+		
+		if senderName == "" {
+			parts := strings.Split(senderEmail, "@")
+			if len(parts) > 0 {
+				localPart := parts[0]
+				localPart = strings.ReplaceAll(localPart, ".", " ")
+				localPart = strings.ReplaceAll(localPart, "_", " ")
+				// Capitalize words roughly
+				words := strings.Fields(localPart)
+				for i, w := range words {
+					if len(w) > 0 {
+						words[i] = strings.ToUpper(w[:1]) + strings.ToLower(w[1:])
+					}
+				}
+				senderName = strings.Join(words, " ")
+			}
+		}
 	}
 
 	emailMsg := &EmailMessage{
