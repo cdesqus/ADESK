@@ -44,6 +44,7 @@ services:
       - WAHA_API_PORT=3000
       - WAHA_LOG_LEVEL=info
       - WAHA_API_KEY=${WAHA_API_KEY:-aidesk-waha-secret-key}
+      - WHATSAPP_DEFAULT_ENGINE=NOWEB
     ports:
       - "3000:3000"
     depends_on:
