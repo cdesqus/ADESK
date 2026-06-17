@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -394,5 +395,49 @@ func (h *EmailHandler) TestEmailConnection(c *gin.Context) {
 
 // POST /api/email/sync
 func (h *EmailHandler) SyncEmails(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"synced": 1, "message": "Manual sync completed"})
+	imapClient := email.NewIMAPClient(
+		h.cfg.EmailIMAPHost,
+		h.cfg.EmailIMAPPort,
+		h.cfg.EmailUser,
+		h.cfg.EmailPassword,
+	)
+
+	if err := imapClient.Connect(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to IMAP server", "details": err.Error()})
+		return
+	}
+	defer imapClient.Close()
+
+	messages, err := imapClient.FetchUnreadEmails()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch emails", "details": err.Error()})
+		return
+	}
+
+	if len(messages) == 0 {
+		c.JSON(http.StatusOK, gin.H{"synced": 0, "message": "No unread emails found"})
+		return
+	}
+
+	successCount := 0
+	for _, msg := range messages {
+		emailMsg, err := email.ParseEmail(msg)
+		if err != nil {
+			log.Printf("SyncEmails: Failed to parse email: %v", err)
+			continue
+		}
+		
+		_, err = h.ProcessEmailWithLogging(emailMsg)
+		if err == nil {
+			successCount++
+			_ = imapClient.MarkAsRead(msg.Uid)
+		} else {
+			log.Printf("SyncEmails: Failed to process email: %v", err)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"synced": successCount,
+		"message": fmt.Sprintf("Successfully synced %d emails out of %d unread", successCount, len(messages)),
+	})
 }
