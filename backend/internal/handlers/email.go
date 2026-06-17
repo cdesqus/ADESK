@@ -132,7 +132,7 @@ func (h *EmailHandler) ProcessEmailWithLogging(emailMsg *email.EmailMessage) (*m
 	if ticket != nil {
 		var customer models.Customer
 		if err := h.db.First(&customer, ticket.CustomerID).Error; err == nil {
-			if err := h.smtpClient.SendAutoReply(emailMsg.From, emailMsg.Subject, ticket.ID, &customer, emailMsg.Body, h.cfg.OpenAIKey); err != nil {
+			if err := h.smtpClient.SendAutoReply(emailMsg.From, emailMsg.FromName, emailMsg.Subject, ticket.ID, &customer, emailMsg.Body, h.cfg.OpenAIKey); err != nil {
 				log.Printf("Failed to send auto-reply: %v", err)
 				// Don't fail if auto-reply fails, just log it
 			}

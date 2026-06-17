@@ -69,12 +69,15 @@ func ParseEmail(msg *imap.Message) (*EmailMessage, error) {
 	// Extract sender email from "From" header
 	addr, err := mail.ParseAddress(from)
 	senderEmail := from
+	senderName := ""
 	if err == nil && addr != nil {
 		senderEmail = addr.Address
+		senderName = addr.Name
 	}
 
 	emailMsg := &EmailMessage{
 		From:        senderEmail,
+		FromName:    senderName,
 		To:          to,
 		Subject:     decodedSubject,
 		TextBody:    textBody,

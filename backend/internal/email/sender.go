@@ -41,19 +41,19 @@ func NewSMTPClient(host string, port int, user, password, fromEmail, fromName st
 }
 
 // SendAutoReply sends an auto-reply email
-func (sc *SMTPClient) SendAutoReply(toEmail, subject string, ticketID uint, customer *models.Customer, emailBody, openAIKey string) error {
+func (sc *SMTPClient) SendAutoReply(toEmail, toName, subject string, ticketID uint, customer *models.Customer, emailBody, openAIKey string) error {
 	if toEmail == "" {
 		return fmt.Errorf("recipient email is required")
 	}
 
 	// Default body
-	body := buildAutoReplyBody(ticketID, customer, sc.fromName, toEmail)
+	body := buildAutoReplyBody(ticketID, customer, toName, sc.fromName)
 
 	// Try AI generation if key is provided
 	if openAIKey != "" {
 		customerName := "Valued Customer"
-		if parsedAddress, err := mail.ParseAddress(toEmail); err == nil && parsedAddress.Name != "" {
-			customerName = parsedAddress.Name
+		if toName != "" {
+			customerName = toName
 		} else if customer != nil && customer.Name != "" && customer.Name != "Unknown Customer" {
 			customerName = customer.Name
 		}
@@ -163,12 +163,11 @@ func (sc *SMTPClient) SendEmailWithAttachments(toEmail, subject, body string, at
 }
 
 // buildAutoReplyBody builds the auto-reply email body
-func buildAutoReplyBody(ticketID uint, customer *models.Customer, companyName string, senderEmailStr string) string {
+func buildAutoReplyBody(ticketID uint, customer *models.Customer, senderName string, companyName string) string {
 	customerName := "Valued Customer"
 	
-	// Parse actual sender name from "Name <email@domain.com>"
-	if parsedAddress, err := mail.ParseAddress(senderEmailStr); err == nil && parsedAddress.Name != "" {
-		customerName = parsedAddress.Name
+	if senderName != "" {
+		customerName = senderName
 	} else if customer != nil && customer.Name != "" && customer.Name != "Unknown Customer" {
 		customerName = customer.Name
 	}
