@@ -246,7 +246,8 @@ func (h *EmailHandler) UpdateEmailSettings(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid format"})
+		log.Printf("JSON binding error in UpdateEmailSettings: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid format", "details": err.Error()})
 		return
 	}
 
