@@ -104,8 +104,13 @@ func (h *WhatsAppHandler) GetSessionQR(c *gin.Context) {
 	if err != nil {
 		if strings.Contains(err.Error(), "status 404") {
 			log.Printf("Session %s not found in Waha, recreating...", session.SessionName)
-			h.wahaClient.CreateSession(session.SessionName)
-			qrCode, err = h.wahaClient.GetSessionQR(session.SessionName)
+			if createErr := h.wahaClient.CreateSession(session.SessionName); createErr != nil {
+				log.Printf("Failed to auto-recreate session: %v", createErr)
+			} else {
+				// Wait for session to be ready
+				time.Sleep(2 * time.Second)
+				qrCode, err = h.wahaClient.GetSessionQR(session.SessionName)
+			}
 		}
 	}
 	if err != nil {
@@ -163,8 +168,13 @@ func (h *WhatsAppHandler) RequestPairingCode(c *gin.Context) {
 	if err != nil {
 		if strings.Contains(err.Error(), "status 404") {
 			log.Printf("Session %s not found in Waha, recreating...", session.SessionName)
-			h.wahaClient.CreateSession(session.SessionName)
-			code, err = h.wahaClient.RequestPairingCode(session.SessionName, req.PhoneNumber)
+			if createErr := h.wahaClient.CreateSession(session.SessionName); createErr != nil {
+				log.Printf("Failed to auto-recreate session: %v", createErr)
+			} else {
+				// Wait for session to be ready
+				time.Sleep(2 * time.Second)
+				code, err = h.wahaClient.RequestPairingCode(session.SessionName, req.PhoneNumber)
+			}
 		}
 	}
 	if err != nil {
