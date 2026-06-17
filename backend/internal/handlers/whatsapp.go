@@ -101,6 +101,13 @@ func (h *WhatsAppHandler) GetSessionQR(c *gin.Context) {
 	// Get QR code from Waha Plus
 	qrCode, err := h.wahaClient.GetSessionQR(session.SessionName)
 	if err != nil {
+		if strings.Contains(err.Error(), "status 404") {
+			log.Printf("Session %s not found in Waha, recreating...", session.SessionName)
+			h.wahaClient.CreateSession(session.SessionName)
+			qrCode, err = h.wahaClient.GetSessionQR(session.SessionName)
+		}
+	}
+	if err != nil {
 		log.Printf("Error getting QR code: %v", err)
 		
 		// If Waha says the session is already WORKING, update the database
@@ -152,6 +159,13 @@ func (h *WhatsAppHandler) RequestPairingCode(c *gin.Context) {
 
 	// Request pairing code from Waha Plus
 	code, err := h.wahaClient.RequestPairingCode(session.SessionName, req.PhoneNumber)
+	if err != nil {
+		if strings.Contains(err.Error(), "status 404") {
+			log.Printf("Session %s not found in Waha, recreating...", session.SessionName)
+			h.wahaClient.CreateSession(session.SessionName)
+			code, err = h.wahaClient.RequestPairingCode(session.SessionName, req.PhoneNumber)
+		}
+	}
 	if err != nil {
 		log.Printf("Error requesting pairing code: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get pairing code", "details": err.Error()})
