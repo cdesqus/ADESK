@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { Link } from 'react-router-dom';
-import { Eye, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Eye, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { CreateTicketModal } from '@/components/CreateTicketModal';
 
@@ -25,7 +25,7 @@ const priorityColors: Record<TicketPriority, { bg: string; text: string }> = {
 };
 
 export const TicketsPage: React.FC = () => {
-  const { tickets, isLoading, error, pagination, fetchTickets, createTicket } = useTickets();
+  const { tickets, isLoading, error, pagination, fetchTickets, createTicket, deleteTicket } = useTickets();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [filters, setFilters] = useState({
     status: '',
@@ -185,11 +185,25 @@ export const TicketsPage: React.FC = () => {
                       {formatDistanceToNow(new Date(ticket.createdAt || (ticket as any).created_at), { addSuffix: true })}
                     </td>
                     <td className="px-6 py-4">
-                      <Link to={`/tickets/${ticket.id}`}>
-                        <Button size="sm" variant="ghost">
-                          <Eye className="w-4 h-4" />
+                      <div className="flex gap-2">
+                        <Link to={`/tickets/${ticket.id}`}>
+                          <Button size="sm" variant="ghost">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </Link>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to delete this ticket?')) {
+                              deleteTicket(ticket.id.toString());
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
-                      </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -208,30 +222,36 @@ export const TicketsPage: React.FC = () => {
                     </p>
                     <h3 className="text-sm font-medium text-gray-900">{ticket.title}</h3>
                   </div>
-                  <Link to={`/tickets/${ticket.id}`}>
-                    <Button size="sm" variant="ghost">
-                      <Eye className="w-4 h-4" />
+                  <div className="flex gap-1">
+                    <Link to={`/tickets/${ticket.id}`}>
+                      <Button size="sm" variant="ghost">
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to delete this ticket?')) {
+                          deleteTicket(ticket.id.toString());
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </Button>
-                  </Link>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-600">Status:</span>
-                    <span
-                      className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                        (statusColors[ticket.status] || statusColors.open).bg
-                      } ${(statusColors[ticket.status] || statusColors.open).text}`}
-                    >
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${(statusColors[ticket.status.toLowerCase() as TicketStatus] || statusColors.open).bg} ${(statusColors[ticket.status.toLowerCase() as TicketStatus] || statusColors.open).text}`}>
                       {ticket.status.replace('_', ' ')}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-600">Priority:</span>
-                    <span
-                      className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                        (priorityColors[ticket.priority] || priorityColors.medium).bg
-                      } ${(priorityColors[ticket.priority] || priorityColors.medium).text}`}
-                    >
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${(priorityColors[ticket.priority.toLowerCase() as TicketPriority] || priorityColors.medium).bg} ${(priorityColors[ticket.priority.toLowerCase() as TicketPriority] || priorityColors.medium).text}`}>
                       {ticket.priority}
                     </span>
                   </div>
