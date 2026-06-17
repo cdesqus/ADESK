@@ -130,7 +130,7 @@ export const TicketDetailPage: React.FC = () => {
               <h1 className="text-3xl font-semibold text-gray-900">{ticket.title}</h1>
             </div>
             <div>
-              <span className={`inline-flex px-3 py-1.5 rounded-full text-sm font-medium ${statusColors[ticket.status].bg} ${statusColors[ticket.status].text}`}>
+              <span className={`inline-flex px-3 py-1.5 rounded-full text-sm font-medium ${(statusColors[ticket.status.toLowerCase() as TicketStatus] || statusColors.open).bg} ${(statusColors[ticket.status.toLowerCase() as TicketStatus] || statusColors.open).text}`}>
                 {ticket.status.replace('_', ' ')}
               </span>
             </div>

@@ -184,8 +184,8 @@ export const DashboardPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                          (statusColors[ticket.status] || statusColors.open).bg
-                        } ${(statusColors[ticket.status] || statusColors.open).text}`}>
+                          (statusColors[ticket.status.toLowerCase() as TicketStatus] || statusColors.open).bg
+                        } ${(statusColors[ticket.status.toLowerCase() as TicketStatus] || statusColors.open).text}`}>
                           {ticket.status.replace('_', ' ')}
                         </span>
                       </td>

@@ -172,20 +172,12 @@ export const TicketsPage: React.FC = () => {
                       {ticket.customer?.name || 'N/A'}
                     </td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          (statusColors[ticket.status] || statusColors.open).bg
-                        } ${(statusColors[ticket.status] || statusColors.open).text}`}
-                      >
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${(statusColors[ticket.status.toLowerCase() as TicketStatus] || statusColors.open).bg} ${(statusColors[ticket.status.toLowerCase() as TicketStatus] || statusColors.open).text}`}>
                         {ticket.status.replace('_', ' ')}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          (priorityColors[ticket.priority] || priorityColors.medium).bg
-                        } ${(priorityColors[ticket.priority] || priorityColors.medium).text}`}
-                      >
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${(priorityColors[ticket.priority.toLowerCase() as TicketPriority] || priorityColors.medium).bg} ${(priorityColors[ticket.priority.toLowerCase() as TicketPriority] || priorityColors.medium).text}`}>
                         {ticket.priority}
                       </span>
                     </td>
