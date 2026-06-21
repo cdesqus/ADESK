@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"ai-desk/internal/ai"
 	"ai-desk/internal/models"
 	"ai-desk/internal/whatsapp"
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,7 @@ type WhatsAppHandler struct {
 	wahaClient     *whatsapp.WahaClient
 	messageSender  *whatsapp.MessageSender
 	actionHandler  *whatsapp.ActionHandler
+	aiClient       *ai.OpenAIClient
 }
 
 func NewWhatsAppHandler(
@@ -28,12 +30,14 @@ func NewWhatsAppHandler(
 	wahaClient *whatsapp.WahaClient,
 	messageSender *whatsapp.MessageSender,
 	actionHandler *whatsapp.ActionHandler,
+	aiClient *ai.OpenAIClient,
 ) *WhatsAppHandler {
 	return &WhatsAppHandler{
 		db:            db,
 		wahaClient:    wahaClient,
 		messageSender: messageSender,
 		actionHandler: actionHandler,
+		aiClient:      aiClient,
 	}
 }
 
@@ -360,7 +364,28 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 
 	// Parse message for actions
 	if msgEvent.Type == "text" {
-		action := whatsapp.ParseMessage(msgEvent.Body, isDirectedToBot)
+		var action *whatsapp.ParsedAction
+		var aiReply string
+
+		// First try OpenAI if it's directed to bot
+		if isDirectedToBot && h.aiClient != nil {
+			waResp, err := h.aiClient.ParseWhatsAppMessage(msgEvent.Body)
+			if err == nil && waResp != nil {
+				action = &whatsapp.ParsedAction{
+					ActionType: waResp.ActionType,
+					TicketID:   waResp.TicketID,
+					Content:    waResp.Content,
+				}
+				aiReply = waResp.NaturalReply
+			} else {
+				log.Printf("[WhatsApp] OpenAI parsing failed, falling back to regex: %v", err)
+			}
+		}
+
+		// Fallback to Regex parser
+		if action == nil {
+			action = whatsapp.ParseMessage(msgEvent.Body, isDirectedToBot)
+		}
 
 		// Check for quoted message (swipe reply)
 		var rawData map[string]interface{}
@@ -393,13 +418,15 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 					TicketID:   ticketID,
 					Content:    cleanContent,
 				}
+				// Clear AI reply since this is a hard-override
+				aiReply = ""
 			}
 		}
 
 		if action != nil {
 			// Reply to the chat where the message originated (group or private)
 			replyTo := msgEvent.From
-			go h.handleAction(payload.Session, senderPhone, replyTo, isGroup, action)
+			go h.handleAction(payload.Session, senderPhone, replyTo, isGroup, action, aiReply)
 		}
 	}
 
@@ -425,10 +452,10 @@ func (h *WhatsAppHandler) logIncomingMessage(sessionName string, msg whatsapp.Me
 	}
 }
 
-func (h *WhatsAppHandler) handleAction(sessionName, senderPhone, replyTo string, isGroup bool, action *whatsapp.ParsedAction) {
+func (h *WhatsAppHandler) handleAction(sessionName, senderPhone, replyTo string, isGroup bool, action *whatsapp.ParsedAction, aiReply string) {
 	switch action.ActionType {
 	case "create_ticket":
-		if err := h.actionHandler.HandleCreateTicket(sessionName, senderPhone, replyTo, isGroup, action.Content); err != nil {
+		if err := h.actionHandler.HandleCreateTicket(sessionName, senderPhone, replyTo, isGroup, action.Content, aiReply); err != nil {
 			log.Printf("Error handling create_ticket: %v", err)
 		}
 	case "update":

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"ai-desk/config"
+	"ai-desk/internal/ai"
 	"ai-desk/internal/db"
 	"ai-desk/internal/email"
 	"ai-desk/internal/handlers"
@@ -85,10 +86,11 @@ func main() {
 	engineerHandler := handlers.NewEngineerHandler(database)
 
 	// Initialize WhatsApp components
+	aiClient := ai.NewOpenAIClient(cfg.OpenAIKey)
 	wahaClient := whatsapp.NewWahaClient(cfg.WahaAPIURL, cfg.WahaAPIKey)
 	messageSender := whatsapp.NewMessageSender(wahaClient, database)
 	actionHandler := whatsapp.NewActionHandler(database, messageSender, wahaClient)
-	whatsappHandler := handlers.NewWhatsAppHandler(database, wahaClient, messageSender, actionHandler)
+	whatsappHandler := handlers.NewWhatsAppHandler(database, wahaClient, messageSender, actionHandler, aiClient)
 
 	// Start daily WhatsApp summary scheduler (e.g. at 08:00 AM)
 	whatsapp.StartDailyScheduler(database, messageSender, 8, 0)

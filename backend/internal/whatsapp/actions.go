@@ -24,7 +24,7 @@ func NewActionHandler(db *gorm.DB, messageSender *MessageSender, wahaClient *Wah
 	}
 }
 
-func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo string, isGroup bool, content string) error {
+func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo string, isGroup bool, content string, aiReply string) error {
 	var customer *models.Customer
 	var customerID uint
 	foundCustomer := false
@@ -122,7 +122,15 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 	}
 
 	// Send confirmation to customer (or group)
-	confirmMsg := fmt.Sprintf("Siap, tiket sudah dibuatkan dengan nomor tiket *%s* ya. Tim kami akan segera mengeceknya! 🛠️", ticket.TicketNumber)
+	confirmMsg := ""
+	if aiReply != "" {
+		confirmMsg = strings.ReplaceAll(aiReply, "{ticket_number}", ticket.TicketNumber)
+		if !strings.Contains(confirmMsg, ticket.TicketNumber) {
+			confirmMsg = fmt.Sprintf("%s\n(Ref: %s)", confirmMsg, ticket.TicketNumber)
+		}
+	} else {
+		confirmMsg = fmt.Sprintf("Siap, tiket sudah dibuatkan dengan nomor tiket *%s* ya. Tim kami akan segera mengeceknya! 🛠️", ticket.TicketNumber)
+	}
 	h.messageSender.SendMessage(sessionName, replyTo, confirmMsg)
 
 	log.Printf("Ticket created: %s from WhatsApp %s (ReplyTo: %s)", ticket.TicketNumber, senderPhone, replyTo)

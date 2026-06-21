@@ -22,10 +22,83 @@ type AIClassification struct {
 	Reply    string `json:"reply"`    // Contextual auto-reply body
 }
 
+// WhatsAppAIResponse holds the AI's analysis of a WhatsApp message
+type WhatsAppAIResponse struct {
+	ActionType   string `json:"action_type"`   // create_ticket, update, close, status_check
+	TicketID     string `json:"ticket_id"`     // empty if create_ticket
+	Content      string `json:"content"`       // the extracted problem description or update message
+	NaturalReply string `json:"natural_reply"` // friendly reply to be sent back
+}
+
 func NewOpenAIClient(apiKey string) *OpenAIClient {
 	return &OpenAIClient{
 		apiKey: apiKey,
 	}
+}
+
+// ParseWhatsAppMessage extracts action and generates a conversational response using OpenAI
+func (c *OpenAIClient) ParseWhatsAppMessage(message string) (*WhatsAppAIResponse, error) {
+	if c.apiKey == "" {
+		return nil, fmt.Errorf("OpenAI API key is missing")
+	}
+
+	prompt := fmt.Sprintf(`Kamu adalah agen Helpdesk WhatsApp. Seseorang mengirim pesan ke bot kamu.
+Pesan: "%s"
+
+TUGAS:
+1. Tentukan action_type dari pesan tersebut. Pilih salah satu:
+   - "create_ticket": Jika pengguna melaporkan masalah atau meminta dibuatkan tiket baru.
+   - "update": Jika pengguna memberikan informasi tambahan/update pada tiket yang sudah ada (harus ada nomor tiket di pesannya atau tersirat).
+   - "status_check": Jika pengguna menanyakan status dari tiketnya.
+   - "close": Jika pengguna meminta tiket ditutup atau masalah sudah selesai.
+2. Jika pesan merujuk ke tiket tertentu (misalnya ada teks seperti "2026-06-001"), ekstrak nomor tiket tersebut ke "ticket_id". Jika tidak ada, kosongkan ("").
+3. Ekstrak inti laporan atau pesan ke "content". Bersihkan dari sapaan (seperti "tolong", "min", "@Helpdesk").
+4. Buat balasan "natural_reply" yang SANGAT ramah, empatik, menggunakan bahasa Indonesia santai tapi profesional, seperti layaknya CS WhatsApp manusia. Jangan gunakan markdown tebal/miring kecuali untuk nomor tiket.
+   Contoh reply create_ticket: "Halo! Siap, tiketnya sudah saya buatkan ya. Tim kami akan segera mengecek masalah ini. Mohon ditunggu! 🛠️"
+
+RESPOND HANYA dalam format JSON berikut (tanpa markdown code block):
+{"action_type":"create_ticket","ticket_id":"","content":"pesan intinya saja","natural_reply":"Halo!..."}`, message)
+
+	requestBody, err := json.Marshal(map[string]interface{}{
+		"model": "gpt-4o-mini",
+		"messages": []map[string]string{
+			{"role": "system", "content": "Kamu adalah AI WhatsApp helpdesk parser. Selalu respond dengan valid JSON tanpa markdown."},
+			{"role": "user", "content": prompt},
+		},
+		"temperature": 0.3,
+		"max_tokens":  300,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	content, err := c.callOpenAI(requestBody)
+	if err != nil {
+		return nil, err
+	}
+
+	// Clean up JSON response
+	content = strings.TrimSpace(content)
+	content = strings.TrimPrefix(content, "```json")
+	content = strings.TrimPrefix(content, "```")
+	content = strings.TrimSuffix(content, "```")
+	content = strings.TrimSpace(content)
+
+	var waResp WhatsAppAIResponse
+	if err := json.Unmarshal([]byte(content), &waResp); err != nil {
+		return nil, fmt.Errorf("failed to parse WhatsApp AI JSON: %w", err)
+	}
+
+	// Fallback/normalization
+	if waResp.ActionType == "" {
+		waResp.ActionType = "create_ticket"
+	}
+	if waResp.NaturalReply == "" {
+		waResp.NaturalReply = "Siap, pesan sudah kami terima. Tim kami akan segera menindaklanjutinya!"
+	}
+
+	log.Printf("[AI WA] Action: %s, TicketID: %s", waResp.ActionType, waResp.TicketID)
+	return &waResp, nil
 }
 
 // ClassifyAndReply classifies the email and generates a contextual reply in one API call
