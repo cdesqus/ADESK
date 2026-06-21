@@ -11,6 +11,7 @@ import (
 
 	"ai-desk/internal/email"
 	"ai-desk/internal/models"
+	"ai-desk/internal/whatsapp"
 	"ai-desk/config"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -23,15 +24,17 @@ type EmailHandler struct {
 	domainMatcher   *email.DomainMatcher
 	smtpClient      *email.SMTPClient
 	cfg             *config.Config
+	messageSender   *whatsapp.MessageSender
 }
 
 // NewEmailHandler creates a new email handler
-func NewEmailHandler(db *gorm.DB, domainMatcher *email.DomainMatcher, smtpClient *email.SMTPClient, cfg *config.Config) *EmailHandler {
+func NewEmailHandler(db *gorm.DB, domainMatcher *email.DomainMatcher, smtpClient *email.SMTPClient, cfg *config.Config, messageSender *whatsapp.MessageSender) *EmailHandler {
 	return &EmailHandler{
 		db:            db,
 		domainMatcher: domainMatcher,
 		smtpClient:    smtpClient,
 		cfg:           cfg,
+		messageSender: messageSender,
 	}
 }
 
@@ -176,9 +179,215 @@ func (h *EmailHandler) ProcessEmailWithLogging(emailMsg *email.EmailMessage) (*m
 				// Don't fail if auto-reply fails, just log it
 			}
 		}
+
+		// Auto-assign engineer and send notifications
+		h.autoAssignAndNotify(ticket, emailMsg)
 	}
 
 	return ticket, nil
+}
+
+// autoAssignAndNotify assigns an engineer to the ticket and sends notifications
+func (h *EmailHandler) autoAssignAndNotify(ticket *models.Ticket, emailMsg *email.EmailMessage) {
+	// Skip if ticket already has an engineer assigned
+	if ticket.EngineerID != nil && *ticket.EngineerID > 0 {
+		return
+	}
+
+	// Find available engineer for this customer (round-robin by least assigned tickets)
+	engineer := h.findAvailableEngineer(ticket.CustomerID)
+	if engineer == nil {
+		log.Printf("[EmailNotify] No available engineer found for customer %d, ticket TK-%d", ticket.CustomerID, ticket.ID)
+		return
+	}
+
+	// Assign engineer to ticket
+	ticket.EngineerID = &engineer.ID
+	if err := h.db.Model(ticket).Update("engineer_id", engineer.ID).Error; err != nil {
+		log.Printf("[EmailNotify] Failed to assign engineer %d to ticket TK-%d: %v", engineer.ID, ticket.ID, err)
+		return
+	}
+
+	log.Printf("[EmailNotify] Auto-assigned engineer %s (ID:%d) to ticket TK-%d", engineer.Name, engineer.ID, ticket.ID)
+
+	// Send email notification to engineer
+	go h.sendEngineerEmailNotification(engineer, ticket, emailMsg)
+
+	// Send WhatsApp notification to engineer
+	go h.sendEngineerWhatsAppNotification(engineer, ticket, emailMsg)
+}
+
+// findAvailableEngineer finds the best engineer to assign using round-robin
+func (h *EmailHandler) findAvailableEngineer(customerID uint) *models.Engineer {
+	var engineers []models.Engineer
+
+	// Get all active engineers for this customer
+	if err := h.db.Where("customer_id = ? AND is_active = ?", customerID, true).
+		Order("id").Find(&engineers).Error; err != nil || len(engineers) == 0 {
+		// Fallback: try to find any active engineer
+		if err := h.db.Where("is_active = ?", true).
+			Order("id").Find(&engineers).Error; err != nil || len(engineers) == 0 {
+			return nil
+		}
+	}
+
+	if len(engineers) == 1 {
+		return &engineers[0]
+	}
+
+	// Round-robin: find engineer with fewest open tickets
+	var bestEngineer *models.Engineer
+	minTickets := int64(999999)
+
+	for i := range engineers {
+		var count int64
+		h.db.Model(&models.Ticket{}).
+			Where("engineer_id = ? AND status IN ?", engineers[i].ID, []string{"OPEN", "IN_PROGRESS"}).
+			Count(&count)
+
+		if count < minTickets {
+			minTickets = count
+			bestEngineer = &engineers[i]
+		}
+	}
+
+	return bestEngineer
+}
+
+// sendEngineerEmailNotification sends an email notification to the assigned engineer
+func (h *EmailHandler) sendEngineerEmailNotification(engineer *models.Engineer, ticket *models.Ticket, emailMsg *email.EmailMessage) {
+	if engineer.Email == "" {
+		log.Printf("[EmailNotify] Engineer %s has no email, skipping email notification", engineer.Name)
+		return
+	}
+
+	subject := fmt.Sprintf("[AI-DESK] Tiket Baru TK-%d Ditugaskan Kepada Anda", ticket.ID)
+
+	// Truncate description for preview
+	descPreview := ticket.Description
+	if len(descPreview) > 500 {
+		descPreview = descPreview[:500] + "..."
+	}
+
+	body := fmt.Sprintf(`Halo %s,
+
+Anda mendapat tiket baru yang membutuhkan perhatian Anda.
+
+══════════════════════════════════════
+📋 DETAIL TIKET
+══════════════════════════════════════
+  Ticket ID  : TK-%d
+  Judul      : %s
+  Prioritas  : %s
+  Sumber     : %s
+  Dari       : %s
+  Waktu      : %s
+
+══════════════════════════════════════
+📝 ISI PESAN
+══════════════════════════════════════
+%s
+
+══════════════════════════════════════
+
+Silakan segera tindak lanjuti tiket ini.
+Akses dashboard AI-DESK untuk detail lebih lanjut.
+
+Salam,
+%s System`,
+		engineer.Name,
+		ticket.ID,
+		ticket.Title,
+		ticket.Priority,
+		ticket.Source,
+		emailMsg.From,
+		ticket.CreatedAt.Format("02 Jan 2006 15:04 WIB"),
+		descPreview,
+		h.cfg.EmailFromName,
+	)
+
+	if err := h.smtpClient.SendEmailWithAttachments(engineer.Email, subject, body, nil); err != nil {
+		log.Printf("[EmailNotify] Failed to send email notification to engineer %s (%s): %v", engineer.Name, engineer.Email, err)
+	} else {
+		log.Printf("[EmailNotify] Email notification sent to engineer %s (%s) for ticket TK-%d", engineer.Name, engineer.Email, ticket.ID)
+	}
+}
+
+// sendEngineerWhatsAppNotification sends a WhatsApp notification to the assigned engineer
+func (h *EmailHandler) sendEngineerWhatsAppNotification(engineer *models.Engineer, ticket *models.Ticket, emailMsg *email.EmailMessage) {
+	if h.messageSender == nil {
+		log.Printf("[WANotify] WhatsApp message sender not available, skipping WA notification")
+		return
+	}
+
+	// Check if engineer has WhatsApp number (from Engineer model or EngineerWAPhone)
+	waNumber := engineer.WhatsappNumber
+
+	// Also check EngineerWAPhone table for registered numbers
+	if waNumber == "" {
+		var waPhone models.EngineerWAPhone
+		if err := h.db.Where("engineer_id = ? AND is_active = ?", engineer.ID, true).
+			First(&waPhone).Error; err == nil {
+			waNumber = waPhone.PhoneNumber
+		}
+	}
+
+	if waNumber == "" {
+		log.Printf("[WANotify] Engineer %s has no WhatsApp number, skipping WA notification", engineer.Name)
+		return
+	}
+
+	// Find an active WhatsApp session
+	var session models.WhatsAppSession
+	if err := h.db.Where("status = ? AND deleted_at IS NULL", "WORKING").
+		First(&session).Error; err != nil {
+		log.Printf("[WANotify] No active WhatsApp session found, skipping WA notification")
+		return
+	}
+
+	// Truncate description for WA message
+	descPreview := ticket.Description
+	if len(descPreview) > 300 {
+		descPreview = descPreview[:300] + "..."
+	}
+
+	message := fmt.Sprintf(`🔔 *Tiket Baru Ditugaskan*
+
+📋 *TK-%d* — %s
+📌 Prioritas: %s
+📧 Dari: %s
+🕐 %s
+
+📝 *Isi Pesan:*
+%s
+
+Silakan cek dashboard AI-DESK untuk detail.`,
+		ticket.ID,
+		ticket.Title,
+		ticket.Priority,
+		emailMsg.From,
+		ticket.CreatedAt.Format("02 Jan 2006 15:04"),
+		descPreview,
+	)
+
+	// Format phone number for WhatsApp (chatId format: number@c.us)
+	chatID := waNumber
+	if !regexp.MustCompile(`@`).MatchString(chatID) {
+		// Strip non-numeric chars
+		cleanNumber := ""
+		for _, c := range chatID {
+			if c >= '0' && c <= '9' {
+				cleanNumber += string(c)
+			}
+		}
+		chatID = cleanNumber + "@c.us"
+	}
+
+	if err := h.messageSender.SendMessage(session.SessionName, chatID, message); err != nil {
+		log.Printf("[WANotify] Failed to send WhatsApp notification to engineer %s (%s): %v", engineer.Name, waNumber, err)
+	} else {
+		log.Printf("[WANotify] WhatsApp notification sent to engineer %s (%s) for ticket TK-%d", engineer.Name, waNumber, ticket.ID)
+	}
 }
 
 // EmailWebhookRequest represents the webhook request payload

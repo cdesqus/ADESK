@@ -137,7 +137,7 @@ func main() {
 		smtpUser, // Use email user as from address
 		cfg.EmailFromName,
 	)
-	emailHandler := handlers.NewEmailHandler(database, domainMatcher, smtpClient, cfg)
+	emailHandler := handlers.NewEmailHandler(database, domainMatcher, smtpClient, cfg, messageSender)
 
 
 	// Initialize and start email poller

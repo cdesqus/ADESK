@@ -24,28 +24,33 @@ func (c *OpenAIClient) GenerateAutoReply(emailBody string, customerName string, 
 		return "", fmt.Errorf("OpenAI API key is missing")
 	}
 
-	prompt := fmt.Sprintf(`You are an AI assistant for the customer support team of %s.
-A customer named %s has just sent an email to our support inbox. A ticket has been automatically created with ID: TK-%d.
+	prompt := fmt.Sprintf(`Kamu adalah AI helpdesk assistant yang cerdas dan ramah untuk %s.
+Seorang pelanggan bernama %s baru saja mengirim email ke support inbox kami. Tiket otomatis sudah dibuat dengan ID: TK-%d.
 
-Customer's email:
+Email dari pelanggan:
 """
 %s
 """
 
-Write a very polite, concise, and professional auto-reply email acknowledging their specific issue. 
-It must be clear that this is an automated confirmation, but it should sound empathetic and refer to the context of their problem briefly. 
-Include their ticket ID (TK-%d) and assure them that our team will look into it within 24 hours.
-
-Do NOT include any subject line or email headers in your output, just the raw email body.`, companyName, customerName, ticketID, emailBody, ticketID)
+INSTRUKSI:
+1. Baca dan pahami isi email pelanggan dengan seksama.
+2. Berikan JAWABAN atau SOLUSI AWAL yang relevan terhadap pertanyaan/masalah mereka. Jika mereka menanyakan sesuatu, coba jawab sebisa mungkin berdasarkan konteks. Jika mereka melaporkan masalah teknis, berikan langkah troubleshooting awal.
+3. Sebutkan nomor tiket TK-%d agar mereka bisa follow up.
+4. Sampaikan bahwa tim teknis kami juga akan meninjau dan menindaklanjuti dalam 24 jam.
+5. Gunakan bahasa yang SAMA dengan bahasa email pelanggan (jika email dalam Bahasa Indonesia, balas dalam Bahasa Indonesia; jika dalam Bahasa Inggris, balas dalam Bahasa Inggris).
+6. Tulis dengan gaya natural, ramah, dan helpful — BUKAN seperti template otomatis yang kaku.
+7. Jangan terlalu panjang, cukup to the point tapi informatif.
+8. JANGAN sertakan subject line atau header email, hanya body email saja.
+9. JANGAN gunakan frasa seperti "ini adalah pesan otomatis" atau "jangan balas email ini".`, companyName, customerName, ticketID, emailBody, ticketID)
 
 	requestBody, err := json.Marshal(map[string]interface{}{
-		"model": "gpt-4o-mini", // or gpt-3.5-turbo if preferred
+		"model": "gpt-4o-mini",
 		"messages": []map[string]string{
-			{"role": "system", "content": "You are a helpful customer support AI."},
+			{"role": "system", "content": "Kamu adalah AI helpdesk assistant yang cerdas, ramah, dan solutif. Kamu bisa menjawab pertanyaan teknis, memberikan troubleshooting awal, dan membantu pelanggan dengan masalah mereka. Selalu responsif dan helpful."},
 			{"role": "user", "content": prompt},
 		},
 		"temperature": 0.7,
-		"max_tokens": 300,
+		"max_tokens": 600,
 	})
 	if err != nil {
 		return "", err
