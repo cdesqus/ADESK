@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { apiService } from '@/services/api';
-import { ArrowLeft, Send, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Send, AlertCircle, MessageSquare, Mail } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 const statusColors: Record<TicketStatus, { bg: string; text: string }> = {
   open: { bg: 'bg-blue-50', text: 'text-blue-800' },
@@ -26,7 +28,7 @@ export const TicketDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [sendEmail, setSendEmail] = useState(false);
+  const [activeTab, setActiveTab] = useState<'internal' | 'email'>('internal');
   const [newStatus, setNewStatus] = useState<TicketStatus | ''>('');
 
   useEffect(() => {
@@ -63,10 +65,11 @@ export const TicketDetailPage: React.FC = () => {
 
     try {
       setIsSubmittingComment(true);
-      const newComment = await apiService.addComment(id, commentText, sendEmail);
+      const isEmail = activeTab === 'email';
+      const newComment = await apiService.addComment(id, commentText, isEmail);
       setComments([...comments, newComment]);
       setCommentText('');
-      setSendEmail(false);
+      setActiveTab('internal');
     } catch (err) {
       console.error('Failed to add comment:', err);
     } finally {
@@ -231,47 +234,90 @@ export const TicketDetailPage: React.FC = () => {
                         {formatDistanceToNow(new Date(comment.createdAt || (comment as any).created_at), { addSuffix: true })}
                       </p>
                     </div>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+                    <div 
+                      className="text-sm text-gray-700 whitespace-pre-wrap prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: comment.content }}
+                    />
                   </div>
                 </div>
               ))
             )}
           </div>
 
-          {/* Add Comment Form */}
-          <form onSubmit={handleAddComment} className="flex flex-col gap-3">
-            <div className="flex gap-3">
-              <Input
-                placeholder="Add a comment..."
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                disabled={isSubmittingComment}
-                className="flex-1"
-              />
-              <Button
-                type="submit"
-                size="icon"
-                disabled={!commentText.trim() || isSubmittingComment}
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
-            {ticket?.status !== 'closed' && (
-              <div className="flex items-center gap-2 px-1">
-                <input
-                  type="checkbox"
-                  id="sendEmail"
-                  checked={sendEmail}
-                  onChange={(e) => setSendEmail(e.target.checked)}
-                  disabled={isSubmittingComment}
-                  className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                />
-                <label htmlFor="sendEmail" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
-                  Kirim komentar ini sebagai balasan ke email pelanggan
-                </label>
+          {/* Tabs for Add Comment / Reply */}
+          {ticket?.status !== 'closed' && (
+            <div className="mt-8 border rounded-lg border-gray-200 overflow-hidden">
+              <div className="flex border-b border-gray-200 bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('internal')}
+                  className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'internal'
+                      ? 'bg-white text-primary-700 border-t-2 border-t-primary-600'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 border-t-2 border-t-transparent'
+                  }`}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Internal Comment
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('email')}
+                  className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'email'
+                      ? 'bg-white text-primary-700 border-t-2 border-t-primary-600'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 border-t-2 border-t-transparent'
+                  }`}
+                >
+                  <Mail className="w-4 h-4" />
+                  Reply to Customer
+                </button>
               </div>
-            )}
-          </form>
+
+              <div className="p-4 bg-white">
+                {activeTab === 'internal' ? (
+                  <form onSubmit={handleAddComment} className="flex gap-3">
+                    <Input
+                      placeholder="Add an internal note..."
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      disabled={isSubmittingComment}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="submit"
+                      disabled={!commentText.trim() || isSubmittingComment}
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Add Note
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleAddComment} className="flex flex-col gap-4">
+                    <div className="mb-2">
+                      <ReactQuill 
+                        theme="snow" 
+                        value={commentText} 
+                        onChange={setCommentText}
+                        readOnly={isSubmittingComment}
+                        placeholder="Write your email reply here..."
+                        className="h-48 mb-12" // mb-12 gives space for the quill toolbar which is absolute sometimes, or just for the bottom
+                      />
+                    </div>
+                    <div className="flex justify-end pt-2 mt-4 border-t border-gray-100">
+                      <Button
+                        type="submit"
+                        disabled={!commentText.trim() || commentText === '<p><br></p>' || isSubmittingComment}
+                      >
+                        <Send className="w-4 h-4 mr-2" />
+                        Send Email Reply
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Updates Timeline */}

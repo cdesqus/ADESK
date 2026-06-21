@@ -63,15 +63,15 @@ TUGAS (harus kamu lakukan semua):
    - FEEDBACK → apresiasi + tanya apakah ada hal lain yang bisa dibantu
    
    Aturan reply:
-   - Sebutkan nomor tiket %s
-   - Gunakan bahasa SAMA dengan email pelanggan
-   - Gaya natural, ramah, helpful — BUKAN template kaku
-   - Jangan terlalu panjang, to the point tapi informatif
-   - JANGAN sertakan subject line atau header email
-   - JANGAN tulis "ini pesan otomatis" atau "jangan balas email ini"
+   - JANGAN tambahkan sapaan pembuka (seperti "Dear", "Halo").
+   - JANGAN tambahkan salam penutup (seperti "Salam", "Terima kasih", "Best Regards").
+   - Hanya tulis inti pesan balasan saja.
+   - Gunakan bahasa SAMA dengan email pelanggan.
+   - Gaya natural, ramah, helpful — BUKAN template kaku.
+   - JANGAN sertakan subject line atau header email.
 
 RESPOND HANYA dalam format JSON berikut (tanpa markdown code block, tanpa penjelasan tambahan):
-{"category":"PROBLEM","priority":"HIGH","reply":"isi reply disini"}`, companyName, customerName, ticketNum, emailBody, ticketNum)
+{"category":"PROBLEM","priority":"HIGH","reply":"isi reply disini"}`, companyName, customerName, emailBody)
 
 	requestBody, err := json.Marshal(map[string]interface{}{
 		"model": "gpt-4o-mini",

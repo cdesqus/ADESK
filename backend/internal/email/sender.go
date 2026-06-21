@@ -93,7 +93,7 @@ func (sc *SMTPClient) SendAutoReplyWithClassification(toEmail, toName, subject s
 	// Create email message with HTML
 	from := fmt.Sprintf("%s <%s>", sc.fromName, sc.fromEmail)
 
-	htmlBody := buildAutoReplyHTML(body, ticketNum, ticketURL, sc.fromName)
+	htmlBody := buildAutoReplyHTML(customerName, body, ticketNum, ticketURL, sc.fromName)
 
 	headers := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=\"UTF-8\"\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n",
 		from,
@@ -222,9 +222,14 @@ func (sc *SMTPClient) SendEmailWithAttachments(toEmail, subject, body string, at
 }
 
 // buildAutoReplyHTML wraps the AI reply text in a clean HTML email template
-func buildAutoReplyHTML(replyBody string, ticketNum string, ticketURL string, companyName string) string {
+func buildAutoReplyHTML(customerName string, replyBody string, ticketNum string, ticketURL string, companyName string) string {
 	// Convert newlines to <br> for HTML
 	htmlReply := strings.ReplaceAll(replyBody, "\n", "<br>")
+
+	greeting := ""
+	if customerName != "" {
+		greeting = fmt.Sprintf("<p>Dear %s,</p>", customerName)
+	}
 
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
@@ -232,9 +237,15 @@ func buildAutoReplyHTML(replyBody string, ticketNum string, ticketURL string, co
 <body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6; font-size: 14px; padding: 10px;">
 	<div>
 		%s
+		<p>%s</p>
+		<p>Berikut adalah no ticket anda: <strong>%s</strong></p>
+		<br>
+		<p>Salam,</p>
+		<p>Best Regards,</p>
+		<p>Helpdesk IDE Solusi</p>
 	</div>
 </body>
-</html>`, htmlReply)
+</html>`, greeting, htmlReply, ticketNum)
 }
 
 // BuildEngineerNotificationHTML builds a professional HTML email for engineer notification
@@ -288,82 +299,58 @@ func BuildEngineerNotificationHTML(engineerName string, ticketID uint, title, pr
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
-<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-<table width="100%%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 0;">
+<body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+<table width="100%%" cellpadding="0" cellspacing="0" style="background-color: #f4f7fa; padding: 32px 0;">
 <tr><td align="center">
-<table width="640" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
-	
+<table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; border: 1px solid #e5e7eb; text-align: left;">
 	<!-- Header -->
 	<tr>
-		<td style="background-color: #1e3a8a; padding: 25px 30px; border-bottom: 3px solid #3b82f6;">
-			<h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">Tiket Baru Ditugaskan</h1>
-			<p style="color: #bfdbfe; margin: 8px 0 0 0; font-size: 14px;">Kepada Yth. %s</p>
+		<td style="background-color: #1e3a8a; padding: 24px 30px;">
+			<h1 style="color: #ffffff; margin: 0; font-size: 20px;">Tiket Baru Ditugaskan</h1>
+			<p style="color: #bfdbfe; margin: 5px 0 0; font-size: 14px;">Kepada Yth. %s</p>
 		</td>
 	</tr>
 
 	<!-- Content -->
 	<tr>
 		<td style="padding: 30px;">
-			<p style="color: #374151; font-size: 15px; margin: 0 0 20px 0; line-height: 1.6;">
-				Anda telah ditugaskan untuk menangani tiket layanan berikut. Mohon untuk segera ditindaklanjuti sesuai dengan SLA yang berlaku.
+			<p style="color: #374151; font-size: 14px; margin: 0 0 20px 0; line-height: 1.6;">
+				Anda telah ditugaskan untuk menangani tiket layanan berikut. Mohon untuk segera ditindaklanjuti.
 			</p>
 
-			<!-- Detail Table -->
-			<table width="100%%" cellpadding="12" cellspacing="0" style="border-collapse: collapse; border: 1px solid #e5e7eb; font-size: 14px;">
+			<!-- Detail Box -->
+			<table width="100%%" cellpadding="10" cellspacing="0" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 20px; font-size: 14px; color: #374151;">
+				<tr><td width="30%%" style="font-weight: bold;">Judul Tiket</td><td>: %s</td></tr>
+				<tr><td style="font-weight: bold;">ID Tiket</td><td>: %d</td></tr>
+				<tr><td style="font-weight: bold;">Pelanggan</td><td>: %s</td></tr>
+				<tr><td style="font-weight: bold;">Sumber</td><td>: %s</td></tr>
+				<tr><td style="font-weight: bold;">Waktu Dibuat</td><td>: %s</td></tr>
+				<tr><td style="font-weight: bold;">Kategori</td><td>: %s %s</td></tr>
+				<tr><td style="font-weight: bold;">Prioritas</td><td>: <span style="background-color: %s; color: %s; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">%s</span></td></tr>
+			</table>
+
+			<h3 style="color: #111827; font-size: 16px; margin: 0 0 10px 0;">Deskripsi Pesan</h3>
+			<table width="100%%" cellpadding="15" cellspacing="0" style="border: 1px solid #e5e7eb; border-radius: 6px; background-color: #ffffff;">
 				<tr>
-					<td width="30%%" style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">Judul Tiket</td>
-					<td style="color: #111827; border: 1px solid #e5e7eb; font-weight: 600;">%s</td>
-				</tr>
-				<tr>
-					<td style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">ID Tiket</td>
-					<td style="color: #111827; border: 1px solid #e5e7eb;">%d</td>
-				</tr>
-				<tr>
-					<td style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">Pelanggan</td>
-					<td style="color: #111827; border: 1px solid #e5e7eb;">%s</td>
-				</tr>
-				<tr>
-					<td style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">Sumber Tiket</td>
-					<td style="color: #111827; border: 1px solid #e5e7eb;">%s</td>
-				</tr>
-				<tr>
-					<td style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">Waktu Dibuat</td>
-					<td style="color: #111827; border: 1px solid #e5e7eb;">%s</td>
-				</tr>
-				<tr>
-					<td style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">Kategori & Prioritas</td>
-					<td style="border: 1px solid #e5e7eb;">
-						<span style="display: inline-block; padding: 2px 8px; background-color: #e5e7eb; color: #374151; border-radius: 4px; font-size: 12px; font-weight: 600; margin-right: 8px;">
-							%s %s
-						</span>
-						<span style="display: inline-block; padding: 2px 8px; background-color: %s; color: %s; border-radius: 4px; font-size: 12px; font-weight: 600;">
-							%s
-						</span>
-					</td>
-				</tr>
-				<tr>
-					<td colspan="2" style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">Deskripsi Pesan</td>
-				</tr>
-				<tr>
-					<td colspan="2" style="background-color: #ffffff; color: #374151; border: 1px solid #e5e7eb; line-height: 1.6; padding: 16px;">
+					<td style="color: #374151; font-size: 14px; line-height: 1.6;">
 						%s
 					</td>
 				</tr>
-				%s
 			</table>
+
+			%s
 		</td>
 	</tr>
 
 	<!-- Footer -->
 	<tr>
 		<td style="background-color: #f9fafb; padding: 20px 30px; border-top: 1px solid #e5e7eb; text-align: center;">
-			<p style="color: #6b7280; font-size: 13px; margin: 0; line-height: 1.5;">
-				Pesan ini dibuat secara otomatis oleh sistem.<br>
-				<strong>%s Helpdesk System</strong>
+			<p style="color: #6b7280; font-size: 12px; margin: 0; line-height: 1.5;">
+				Email ini otomatis dibuat oleh sistem %s.<br>
+				Mohon tidak membalas langsung ke email ini.
 			</p>
 		</td>
 	</tr>
-
 </table>
 </td></tr>
 </table>

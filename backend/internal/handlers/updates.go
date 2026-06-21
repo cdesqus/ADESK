@@ -94,13 +94,15 @@ func (h *UpdateHandler) CreateUpdate(c *gin.Context) {
 <html>
 <body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6; font-size: 14px; padding: 10px;">
 	<div>
-		<p>Halo,</p>
-		<p>%s</p>
+		%s
+		<p>Berikut adalah no ticket anda: <strong>%s</strong></p>
 		<br>
-		<p>Salam,<br>Tim Support</p>
+		<p>Salam,</p>
+		<p>Best Regards,</p>
+		<p>Helpdesk IDE Solusi</p>
 	</div>
 </body>
-</html>`, msg)
+</html>`, msg, ticketNum)
 			if err := h.smtpClient.SendHTMLEmail(emailFrom, "", subject, htmlBody); err != nil {
 				log.Printf("Failed to send ticket reply email to %s: %v", emailFrom, err)
 			}

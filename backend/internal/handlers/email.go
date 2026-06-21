@@ -378,8 +378,18 @@ func (h *EmailHandler) sendEngineerWhatsAppNotification(engineer *models.Enginee
 		customerName = "Unknown Customer"
 	}
 
-	message := fmt.Sprintf("🎫 *TICKET ASSIGNMENT*\n\nAnda ditugaskan untuk menangani tiket baru:\n\n%s *%s* — %s\n\n*Pelanggan:* %s\n*Kategori:* %s\n*Prioritas:* %s\n\n*Pesan:*\n_%s_%s",
-		pEmoji, ticket.TicketNumber, ticket.Title, customerName, ticket.Category, ticket.Priority, descPreview, ticketURL)
+	customerCompany := "-"
+	if ticket.Customer != nil && ticket.Customer.Company != "" {
+		customerCompany = ticket.Customer.Company
+	} else if ticket.CustomerID != 0 {
+		var c models.Customer
+		if err := h.db.First(&c, ticket.CustomerID).Error; err == nil {
+			customerCompany = c.Company
+		}
+	}
+
+	message := fmt.Sprintf("🎫 *TICKET ASSIGNMENT*\n\nAnda ditugaskan untuk menangani tiket baru:\n\n%s *%s* — %s\n\n*Pelanggan:* %s\n*Kantor:* %s\n*Kategori:* %s\n*Prioritas:* %s\n\n*Pesan:*\n_%s_%s",
+		pEmoji, ticket.TicketNumber, ticket.Title, customerName, customerCompany, ticket.Category, ticket.Priority, descPreview, ticketURL)
 
 	// Format phone number for WhatsApp (chatId format: number@c.us)
 	chatID := formatWANumber(waNumber)
