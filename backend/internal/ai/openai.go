@@ -63,7 +63,7 @@ TUGAS (harus kamu lakukan semua):
    - FEEDBACK → apresiasi + tanya apakah ada hal lain yang bisa dibantu
    
    Aturan reply:
-   - Sebutkan nomor tiket TK-%d
+   - Sebutkan nomor tiket %s
    - Gunakan bahasa SAMA dengan email pelanggan
    - Gaya natural, ramah, helpful — BUKAN template kaku
    - Jangan terlalu panjang, to the point tapi informatif
@@ -71,7 +71,7 @@ TUGAS (harus kamu lakukan semua):
    - JANGAN tulis "ini pesan otomatis" atau "jangan balas email ini"
 
 RESPOND HANYA dalam format JSON berikut (tanpa markdown code block, tanpa penjelasan tambahan):
-{"category":"PROBLEM","priority":"HIGH","reply":"isi reply disini"}`, companyName, customerName, ticketID, emailBody, ticketID)
+{"category":"PROBLEM","priority":"HIGH","reply":"isi reply disini"}`, companyName, customerName, ticketNum, emailBody, ticketNum)
 
 	requestBody, err := json.Marshal(map[string]interface{}{
 		"model": "gpt-4o-mini",
@@ -120,8 +120,8 @@ RESPOND HANYA dalam format JSON berikut (tanpa markdown code block, tanpa penjel
 }
 
 // GenerateAutoReply is a backward-compatible wrapper that returns just the reply text
-func (c *OpenAIClient) GenerateAutoReply(emailBody string, customerName string, companyName string, ticketID uint) (string, error) {
-	classification, err := c.ClassifyAndReply(emailBody, customerName, companyName, ticketID)
+func (c *OpenAIClient) GenerateAutoReply(emailBody string, customerName string, companyName string, ticketNum string) (string, error) {
+	classification, err := c.ClassifyAndReply(emailBody, customerName, companyName, ticketNum)
 	if err != nil {
 		return "", err
 	}
