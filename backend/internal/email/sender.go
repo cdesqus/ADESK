@@ -226,18 +226,12 @@ func buildAutoReplyHTML(customerName string, replyBody string, ticketNum string,
 	// Convert newlines to <br> for HTML
 	htmlReply := strings.ReplaceAll(replyBody, "\n", "<br>")
 
-	greeting := ""
-	if customerName != "" {
-		greeting = fmt.Sprintf("<p>Dear %s,</p>", customerName)
-	}
-
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
 <body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6; font-size: 14px; padding: 10px;">
 	<div>
 		%s
-		<p>%s</p>
 		<p>Berikut adalah no ticket anda: <strong>%s</strong></p>
 		<br>
 		<p>Salam,</p>
@@ -245,7 +239,7 @@ func buildAutoReplyHTML(customerName string, replyBody string, ticketNum string,
 		<p>Helpdesk IDE Solusi</p>
 	</div>
 </body>
-</html>`, greeting, htmlReply, ticketNum)
+</html>`, htmlReply, ticketNum)
 }
 
 // BuildEngineerNotificationHTML builds a professional HTML email for engineer notification

@@ -63,9 +63,8 @@ TUGAS (harus kamu lakukan semua):
    - FEEDBACK → apresiasi + tanya apakah ada hal lain yang bisa dibantu
    
    Aturan reply:
-   - JANGAN tambahkan sapaan pembuka (seperti "Dear", "Halo").
+   - Tambahkan sapaan pembuka yang profesional dan sopan (seperti "Dear", "Halo Bapak/Ibu").
    - JANGAN tambahkan salam penutup (seperti "Salam", "Terima kasih", "Best Regards").
-   - Hanya tulis inti pesan balasan saja.
    - Gunakan bahasa SAMA dengan email pelanggan.
    - Gaya natural, ramah, helpful — BUKAN template kaku.
    - JANGAN sertakan subject line atau header email.
