@@ -199,7 +199,7 @@ export const CustomersPage: React.FC = () => {
             </div>
             <div className="flex gap-3">
               <Button onClick={handleAdd}>Create</Button>
-              <Button variant="outline" onClick={() => { setIsAdding(false); setFormData({ name: '', domain: '', email_support: '', address: '' }); }}>
+              <Button variant="outline" onClick={() => { setIsAdding(false); setFormData({ name: '', domain: '', email_support: '', address: '', wa_groups: [] }); }}>
                 Cancel
               </Button>
             </div>
@@ -302,7 +302,7 @@ export const CustomersPage: React.FC = () => {
                 </div>
                 <div className="flex gap-3">
                   <Button onClick={() => handleUpdate(editingId)}>Save</Button>
-                  <Button variant="outline" onClick={() => { setEditingId(null); setFormData({ name: '', domain: '', email_support: '', address: '' }); }}>
+                  <Button variant="outline" onClick={() => { setEditingId(null); setFormData({ name: '', domain: '', email_support: '', address: '', wa_groups: [] }); }}>
                     Cancel
                   </Button>
                 </div>
