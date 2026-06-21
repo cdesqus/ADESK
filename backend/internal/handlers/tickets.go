@@ -107,7 +107,7 @@ func (h *TicketHandler) GetTickets(c *gin.Context) {
 	}
 
 	var tickets []models.Ticket
-	query := h.db.Offset((pageNum-1)*limitNum).Limit(limitNum).Preload("Engineer").Preload("Updates")
+	query := h.db.Offset((pageNum-1)*limitNum).Limit(limitNum).Preload("Engineer").Preload("Updates").Preload("Customer")
 
 	if customerID != "" {
 		query = query.Where("customer_id = ?", customerID)
@@ -181,7 +181,7 @@ func (h *TicketHandler) GetTicketByID(c *gin.Context) {
 	}
 
 	var ticket models.Ticket
-	if err := h.db.Preload("Engineer").Preload("Updates").First(&ticket, ticketID).Error; err != nil {
+	if err := h.db.Preload("Engineer").Preload("Updates").Preload("Customer").First(&ticket, ticketID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "ticket not found"})
 			return

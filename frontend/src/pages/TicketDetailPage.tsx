@@ -7,8 +7,8 @@ import { Select } from '@/components/ui/Select';
 import { apiService } from '@/services/api';
 import { ArrowLeft, Send, AlertCircle, MessageSquare, Mail } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 
 const statusColors: Record<TicketStatus, { bg: string; text: string }> = {
   open: { bg: 'bg-blue-50', text: 'text-blue-800' },
@@ -149,10 +149,15 @@ export const TicketDetailPage: React.FC = () => {
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Ticket Information</h3>
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs text-gray-600 uppercase tracking-wide">Customer</p>
+                  <p className="text-xs text-gray-600 uppercase tracking-wide">Customer & Contact</p>
                   <p className="text-sm font-medium text-gray-900 mt-0.5">
                     {ticket.customer?.name || 'N/A'}
                   </p>
+                  {(ticket.email_from || ticket.whatsapp_from) && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {ticket.email_from || ticket.whatsapp_from}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 uppercase tracking-wide">Priority</p>
