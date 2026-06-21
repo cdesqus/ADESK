@@ -185,6 +185,9 @@ func main() {
 		log.Printf("Warning: Failed to start report scheduler: %v", err)
 	}
 
+	// Start daily open ticket summary scheduler (runs at 08:00 AM)
+	email.StartDailyOpenTicketSummary(database, smtpClient, 8, 0, cfg.EmailFromName, cfg.FrontendURL)
+
 	// Routes
 	setupRoutes(router, cfg, authHandler, customerHandler, engineerHandler, ticketHandler, updateHandler, emailHandler, whatsappHandler, reportHandler, dashboardHandler)
 
@@ -319,6 +322,8 @@ func setupRoutes(
 		wa.DELETE("/sessions/:id", waHandler.DeleteSession)
 		wa.POST("/engineers/:id/phone", waHandler.AddEngineerPhone)
 		wa.GET("/engineer-phones", waHandler.GetEngineerPhones)
+		wa.PUT("/engineer-phones/:id", waHandler.UpdateEngineerPhone)
+		wa.DELETE("/engineer-phones/:id", waHandler.DeleteEngineerPhone)
 		wa.POST("/test-message", waHandler.TestMessage)
 		wa.GET("/webhook/status", waHandler.GetHookStatus)
 		wa.GET("/logs", waHandler.GetLogs)

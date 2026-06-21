@@ -308,7 +308,7 @@ func (h *EmailHandler) sendEngineerEmailNotification(engineer *models.Engineer, 
 		ticket.Category,
 	)
 
-	if err := h.smtpClient.SendHTMLEmail(engineer.Email, subject, htmlBody); err != nil {
+	if err := h.smtpClient.SendHTMLEmail(engineer.Email, "support@idesolusi.co.id", subject, htmlBody); err != nil {
 		log.Printf("[EmailNotify] Failed to send email notification to engineer %s (%s): %v", engineer.Name, engineer.Email, err)
 	} else {
 		log.Printf("[EmailNotify] Email notification sent to engineer %s (%s) for ticket %s", engineer.Name, engineer.Email, ticket.TicketNumber)

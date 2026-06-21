@@ -578,9 +578,61 @@ func (h *WhatsAppHandler) TestMessage(c *gin.Context) {
 	// Send message
 	_, err := h.wahaClient.SendMessage(session.SessionName, chatId, req.Message)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "failed to send message"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Message sent"})
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "message sent successfully"})
+}
+
+// PUT /api/whatsapp/engineer-phones/:id
+func (h *WhatsAppHandler) UpdateEngineerPhone(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		PhoneNumber string `json:"phoneNumber"`
+		GroupID     string `json:"groupId"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	var phone models.EngineerWAPhone
+	if err := h.db.Preload("Engineer").Where("id = ?", id).First(&phone).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "phone not found"})
+		return
+	}
+
+	if req.PhoneNumber != "" {
+		phone.PhoneNumber = req.PhoneNumber
+	}
+	phone.GroupID = req.GroupID
+
+	if err := h.db.Save(&phone).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update phone"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":           phone.ID,
+		"engineerId":   strconv.FormatUint(uint64(phone.EngineerID), 10),
+		"phoneNumber":  phone.PhoneNumber,
+		"groupId":      phone.GroupID,
+		"isActive":     phone.IsActive,
+		"engineerName": phone.Engineer.Name,
+		"createdAt":    phone.CreatedAt,
+	})
+}
+
+// DELETE /api/whatsapp/engineer-phones/:id
+func (h *WhatsAppHandler) DeleteEngineerPhone(c *gin.Context) {
+	id := c.Param("id")
+	
+	if err := h.db.Where("id = ?", id).Delete(&models.EngineerWAPhone{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete phone"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "deleted successfully"})
 }

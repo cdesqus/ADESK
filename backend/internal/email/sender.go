@@ -123,16 +123,24 @@ func (sc *SMTPClient) SendAutoReply(toEmail, toName, subject string, ticketNum s
 }
 
 // SendHTMLEmail sends an HTML email
-func (sc *SMTPClient) SendHTMLEmail(toEmail, subject, htmlBody string) error {
+func (sc *SMTPClient) SendHTMLEmail(toEmail, ccEmail, subject, htmlBody string) error {
 	if toEmail == "" {
 		return fmt.Errorf("recipient email is required")
 	}
 
 	from := fmt.Sprintf("%s <%s>", sc.fromName, sc.fromEmail)
 
-	headers := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=\"UTF-8\"\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n",
+	ccHeader := ""
+	recipients := []string{toEmail}
+	if ccEmail != "" {
+		ccHeader = fmt.Sprintf("Cc: %s\r\n", ccEmail)
+		recipients = append(recipients, ccEmail)
+	}
+
+	headers := fmt.Sprintf("From: %s\r\nTo: %s\r\n%sSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=\"UTF-8\"\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n",
 		from,
 		toEmail,
+		ccHeader,
 		subject,
 	)
 
@@ -141,13 +149,13 @@ func (sc *SMTPClient) SendHTMLEmail(toEmail, subject, htmlBody string) error {
 	addr := fmt.Sprintf("%s:%d", sc.host, sc.port)
 	auth := smtp.PlainAuth("", sc.user, sc.password, sc.host)
 
-	err := smtp.SendMail(addr, auth, sc.fromEmail, []string{toEmail}, []byte(fullMessage))
+	err := smtp.SendMail(addr, auth, sc.fromEmail, recipients, []byte(fullMessage))
 	if err != nil {
-		log.Printf("Failed to send HTML email to %s: %v", toEmail, err)
+		log.Printf("Failed to send HTML email to %s (CC: %s): %v", toEmail, ccEmail, err)
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 
-	log.Printf("HTML email sent successfully to %s", toEmail)
+	log.Printf("HTML email sent successfully to %s (CC: %s)", toEmail, ccEmail)
 	return nil
 }
 
@@ -218,79 +226,35 @@ func buildAutoReplyHTML(replyBody string, ticketNum string, ticketURL string, co
 	// Convert newlines to <br> for HTML
 	htmlReply := strings.ReplaceAll(replyBody, "\n", "<br>")
 
-	trackingButton := ""
-	if ticketURL != "" {
-		trackingButton = fmt.Sprintf(`
-		<tr>
-			<td style="padding: 24px 30px 10px;">
-				<a href="%s" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px;">
-					📋 Lihat Tiket %s
-				</a>
-			</td>
-		</tr>`, ticketURL, ticketNum)
-	}
-
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
-<body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-<table width="100%%" cellpadding="0" cellspacing="0" style="background-color: #f4f7fa; padding: 32px 0;">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden;">
-	<!-- Header -->
-	<tr>
-		<td style="background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); padding: 28px 30px; text-align: center;">
-			<h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">%s</h1>
-			<p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">Helpdesk Support System</p>
-		</td>
-	</tr>
-	<!-- Ticket Badge -->
-	<tr>
-		<td style="padding: 20px 30px 0;">
-			<span style="display: inline-block; background: #eef2ff; color: #4338ca; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;">
-				🎫 Ticket ID: %s
-			</span>
-		</td>
-	</tr>
-	<!-- Body -->
-	<tr>
-		<td style="padding: 20px 30px; color: #374151; font-size: 15px; line-height: 1.7;">
-			%s
-		</td>
-	</tr>
-	<!-- Button -->
-	%s
-	<!-- Footer -->
-	<tr>
-		<td style="padding: 24px 30px; border-top: 1px solid #e5e7eb; margin-top: 16px;">
-			<p style="color: #9ca3af; font-size: 12px; margin: 0; line-height: 1.6;">
-				Email ini dikirim oleh %s Helpdesk System.<br>
-				Anda menerima email ini karena ada tiket support yang terkait dengan alamat email Anda.
-			</p>
-		</td>
-	</tr>
-</table>
-</td></tr>
-</table>
+<body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6; font-size: 14px; padding: 10px;">
+	<div>
+		%s
+	</div>
 </body>
-</html>`, companyName, ticketNum, htmlReply, trackingButton, companyName)
+</html>`, htmlReply)
 }
 
 // BuildEngineerNotificationHTML builds a professional HTML email for engineer notification
 func BuildEngineerNotificationHTML(engineerName string, ticketID uint, title, priority, source, senderEmail, createdAt, description, ticketURL, companyName, category string) string {
-	// Priority color mapping
-	priorityColors := map[string]string{
-		"LOW":    "#22c55e",
-		"MEDIUM": "#f59e0b",
-		"HIGH":   "#ef4444",
-		"URGENT": "#dc2626",
-	}
-	priorityColor := priorityColors[priority]
-	if priorityColor == "" {
-		priorityColor = "#6b7280"
+	// Priority styling
+	priorityColor := "#f59e0b" // MEDIUM
+	priorityBg := "#fef3c7"
+	switch priority {
+	case "LOW":
+		priorityColor = "#16a34a"
+		priorityBg = "#dcfce7"
+	case "HIGH":
+		priorityColor = "#ea580c"
+		priorityBg = "#ffedd5"
+	case "URGENT":
+		priorityColor = "#dc2626"
+		priorityBg = "#fee2e2"
 	}
 
-	// Category emoji mapping
+	// Category emoji
 	categoryEmoji := map[string]string{
 		"PROBLEM":  "🔴",
 		"REQUEST":  "🔵",
@@ -304,8 +268,8 @@ func BuildEngineerNotificationHTML(engineerName string, ticketID uint, title, pr
 
 	// Truncate description
 	descPreview := description
-	if len(descPreview) > 500 {
-		descPreview = descPreview[:500] + "..."
+	if len(descPreview) > 1000 {
+		descPreview = descPreview[:1000] + "..."
 	}
 	descHTML := strings.ReplaceAll(descPreview, "\n", "<br>")
 
@@ -313,9 +277,9 @@ func BuildEngineerNotificationHTML(engineerName string, ticketID uint, title, pr
 	if ticketURL != "" {
 		viewButton = fmt.Sprintf(`
 		<tr>
-			<td style="padding: 20px 30px 10px;">
-				<a href="%s" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 14px;">
-					🔗 Buka Tiket di Dashboard
+			<td colspan="2" align="center" style="padding: 30px 20px;">
+				<a href="%s" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 14px;">
+					🔍 Buka Tiket di Dashboard
 				</a>
 			</td>
 		</tr>`, ticketURL)
@@ -324,74 +288,95 @@ func BuildEngineerNotificationHTML(engineerName string, ticketID uint, title, pr
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
-<body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-<table width="100%%" cellpadding="0" cellspacing="0" style="background-color: #f4f7fa; padding: 32px 0;">
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+<table width="100%%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 0;">
 <tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden;">
+<table width="640" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+	
 	<!-- Header -->
 	<tr>
-		<td style="background: linear-gradient(135deg, #1e3a5f 0%%, #2d5a87 100%%); padding: 28px 30px;">
-			<h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700;">🔔 Tiket Baru Ditugaskan</h1>
-			<p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 13px;">Halo %s, ada tiket baru untuk Anda</p>
+		<td style="background-color: #1e3a8a; padding: 25px 30px; border-bottom: 3px solid #3b82f6;">
+			<h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">Tiket Baru Ditugaskan</h1>
+			<p style="color: #bfdbfe; margin: 8px 0 0 0; font-size: 14px;">Kepada Yth. %s</p>
 		</td>
 	</tr>
-	<!-- Ticket Info Card -->
+
+	<!-- Content -->
 	<tr>
-		<td style="padding: 24px 30px 0;">
-			<table width="100%%" cellpadding="0" cellspacing="0" style="background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
+		<td style="padding: 30px;">
+			<p style="color: #374151; font-size: 15px; margin: 0 0 20px 0; line-height: 1.6;">
+				Anda telah ditugaskan untuk menangani tiket layanan berikut. Mohon untuk segera ditindaklanjuti sesuai dengan SLA yang berlaku.
+			</p>
+
+			<!-- Detail Table -->
+			<table width="100%%" cellpadding="12" cellspacing="0" style="border-collapse: collapse; border: 1px solid #e5e7eb; font-size: 14px;">
 				<tr>
-					<td style="padding: 20px;">
-						<h2 style="margin: 0 0 12px; font-size: 17px; color: #1e293b;">%d — %s</h2>
-						<table cellpadding="0" cellspacing="0">
-							<tr>
-								<td style="padding: 3px 0;">
-									<span style="display: inline-block; background: %s; color: #fff; padding: 3px 12px; border-radius: 12px; font-size: 11px; font-weight: 600;">%s</span>
-									<span style="display: inline-block; background: #eef2ff; color: #4338ca; padding: 3px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: 6px;">%s %s</span>
-								</td>
-							</tr>
-						</table>
-						<table width="100%%" cellpadding="0" cellspacing="0" style="margin-top: 14px; font-size: 13px; color: #64748b;">
-							<tr><td style="padding: 4px 0;">📧 Dari: <strong style="color: #334155;">%s</strong></td></tr>
-							<tr><td style="padding: 4px 0;">📡 Sumber: <strong style="color: #334155;">%s</strong></td></tr>
-							<tr><td style="padding: 4px 0;">🕐 Waktu: <strong style="color: #334155;">%s</strong></td></tr>
-						</table>
+					<td width="30%%" style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">Judul Tiket</td>
+					<td style="color: #111827; border: 1px solid #e5e7eb; font-weight: 600;">%s</td>
+				</tr>
+				<tr>
+					<td style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">ID Tiket</td>
+					<td style="color: #111827; border: 1px solid #e5e7eb;">%d</td>
+				</tr>
+				<tr>
+					<td style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">Pelanggan</td>
+					<td style="color: #111827; border: 1px solid #e5e7eb;">%s</td>
+				</tr>
+				<tr>
+					<td style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">Sumber Tiket</td>
+					<td style="color: #111827; border: 1px solid #e5e7eb;">%s</td>
+				</tr>
+				<tr>
+					<td style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">Waktu Dibuat</td>
+					<td style="color: #111827; border: 1px solid #e5e7eb;">%s</td>
+				</tr>
+				<tr>
+					<td style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">Kategori & Prioritas</td>
+					<td style="border: 1px solid #e5e7eb;">
+						<span style="display: inline-block; padding: 2px 8px; background-color: #e5e7eb; color: #374151; border-radius: 4px; font-size: 12px; font-weight: 600; margin-right: 8px;">
+							%s %s
+						</span>
+						<span style="display: inline-block; padding: 2px 8px; background-color: %s; color: %s; border-radius: 4px; font-size: 12px; font-weight: 600;">
+							%s
+						</span>
 					</td>
 				</tr>
+				<tr>
+					<td colspan="2" style="background-color: #f9fafb; font-weight: 600; color: #4b5563; border: 1px solid #e5e7eb;">Deskripsi Pesan</td>
+				</tr>
+				<tr>
+					<td colspan="2" style="background-color: #ffffff; color: #374151; border: 1px solid #e5e7eb; line-height: 1.6; padding: 16px;">
+						%s
+					</td>
+				</tr>
+				%s
 			</table>
 		</td>
 	</tr>
-	<!-- Description -->
-	<tr>
-		<td style="padding: 20px 30px 0;">
-			<h3 style="margin: 0 0 8px; font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">📝 Isi Pesan</h3>
-			<div style="background: #fefefe; border-left: 4px solid #667eea; padding: 16px; border-radius: 0 8px 8px 0; color: #374151; font-size: 14px; line-height: 1.6;">
-				%s
-			</div>
-		</td>
-	</tr>
-	<!-- Button -->
-	%s
+
 	<!-- Footer -->
 	<tr>
-		<td style="padding: 24px 30px; border-top: 1px solid #e5e7eb; margin-top: 16px;">
-			<p style="color: #9ca3af; font-size: 12px; margin: 0; line-height: 1.6;">
-				Silakan segera tindak lanjuti tiket ini.<br>
-				%s Helpdesk System
+		<td style="background-color: #f9fafb; padding: 20px 30px; border-top: 1px solid #e5e7eb; text-align: center;">
+			<p style="color: #6b7280; font-size: 13px; margin: 0; line-height: 1.5;">
+				Pesan ini dibuat secara otomatis oleh sistem.<br>
+				<strong>%s Helpdesk System</strong>
 			</p>
 		</td>
 	</tr>
+
 </table>
 </td></tr>
 </table>
 </body>
 </html>`,
 		engineerName,
-		ticketID, title,
-		priorityColor, priority,
-		catEmoji, category,
+		title,
+		ticketID,
 		senderEmail,
 		source,
 		createdAt,
+		catEmoji, category,
+		priorityBg, priorityColor, priority,
 		descHTML,
 		viewButton,
 		companyName,
