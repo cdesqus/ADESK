@@ -26,6 +26,7 @@ export const TicketDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [sendEmail, setSendEmail] = useState(false);
   const [newStatus, setNewStatus] = useState<TicketStatus | ''>('');
 
   useEffect(() => {
@@ -62,9 +63,10 @@ export const TicketDetailPage: React.FC = () => {
 
     try {
       setIsSubmittingComment(true);
-      const newComment = await apiService.addComment(id, commentText);
+      const newComment = await apiService.addComment(id, commentText, sendEmail);
       setComments([...comments, newComment]);
       setCommentText('');
+      setSendEmail(false);
     } catch (err) {
       console.error('Failed to add comment:', err);
     } finally {
@@ -237,21 +239,38 @@ export const TicketDetailPage: React.FC = () => {
           </div>
 
           {/* Add Comment Form */}
-          <form onSubmit={handleAddComment} className="flex gap-3">
-            <Input
-              placeholder="Add a comment..."
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              disabled={isSubmittingComment}
-              className="flex-1"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!commentText.trim() || isSubmittingComment}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
+          <form onSubmit={handleAddComment} className="flex flex-col gap-3">
+            <div className="flex gap-3">
+              <Input
+                placeholder="Add a comment..."
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                disabled={isSubmittingComment}
+                className="flex-1"
+              />
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!commentText.trim() || isSubmittingComment}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+            {ticket?.status !== 'closed' && (
+              <div className="flex items-center gap-2 px-1">
+                <input
+                  type="checkbox"
+                  id="sendEmail"
+                  checked={sendEmail}
+                  onChange={(e) => setSendEmail(e.target.checked)}
+                  disabled={isSubmittingComment}
+                  className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
+                />
+                <label htmlFor="sendEmail" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
+                  Kirim komentar ini sebagai balasan ke email pelanggan
+                </label>
+              </div>
+            )}
           </form>
         </div>
 

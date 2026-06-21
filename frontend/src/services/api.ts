@@ -219,10 +219,10 @@ class ApiService {
     }));
   }
 
-  async addComment(ticketId: string, content: string): Promise<TicketComment> {
+  async addComment(ticketId: string, content: string, sendEmail: boolean = false): Promise<TicketComment> {
     const response = await this.api.post<any>(
       `/tickets/${ticketId}/updates`,
-      { message: content, action_type: 'COMMENT' }
+      { message: content, action_type: 'COMMENT', send_email: sendEmail }
     );
     // backend CreateUpdate returns the update object directly
     const c = response.data;

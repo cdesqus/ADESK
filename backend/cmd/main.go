@@ -83,7 +83,6 @@ func main() {
 	authHandler := handlers.NewAuthHandler(database, cfg.JWTSecret)
 	customerHandler := handlers.NewCustomerHandler(database)
 	engineerHandler := handlers.NewEngineerHandler(database)
-	updateHandler := handlers.NewUpdateHandler(database)
 
 	// Initialize WhatsApp components
 	wahaClient := whatsapp.NewWahaClient(cfg.WahaAPIURL, cfg.WahaAPIKey)
@@ -141,6 +140,7 @@ func main() {
 	)
 	emailHandler := handlers.NewEmailHandler(database, domainMatcher, smtpClient, cfg, messageSender)
 	ticketHandler := handlers.NewTicketHandler(database, smtpClient)
+	updateHandler := handlers.NewUpdateHandler(database, smtpClient)
 
 
 	// Initialize and start email poller

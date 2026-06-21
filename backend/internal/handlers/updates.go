@@ -5,17 +5,21 @@ import (
 	"net/http"
 	"strconv"
 
+	"ai-desk/internal/email"
 	"ai-desk/internal/models"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"fmt"
+	"log"
 )
 
 type UpdateHandler struct {
-	db *gorm.DB
+	db         *gorm.DB
+	smtpClient *email.SMTPClient
 }
 
-func NewUpdateHandler(db *gorm.DB) *UpdateHandler {
-	return &UpdateHandler{db: db}
+func NewUpdateHandler(db *gorm.DB, smtpClient *email.SMTPClient) *UpdateHandler {
+	return &UpdateHandler{db: db, smtpClient: smtpClient}
 }
 
 // CreateUpdate adds an update/comment to a ticket
@@ -29,11 +33,17 @@ func (h *UpdateHandler) CreateUpdate(c *gin.Context) {
 		return
 	}
 
-	var update models.Update
-	if err := c.ShouldBindJSON(&update); err != nil {
+	var req struct {
+		models.Update
+		SendEmail bool `json:"send_email"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
 		return
 	}
+
+	update := req.Update
 
 	// Validate required fields
 	if update.Message == "" {
@@ -74,6 +84,27 @@ func (h *UpdateHandler) CreateUpdate(c *gin.Context) {
 	if err := h.db.Create(&update).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create update", "details": err.Error()})
 		return
+	}
+
+	// Send email to customer if requested
+	if req.SendEmail && ticket.EmailFrom != "" {
+		go func(emailFrom, ticketNum, msg string) {
+			subject := fmt.Sprintf("[AI-DESK] Re: [%s] Update Tiket", ticketNum)
+			htmlBody := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6; font-size: 14px; padding: 10px;">
+	<div>
+		<p>Halo,</p>
+		<p>%s</p>
+		<br>
+		<p>Salam,<br>Tim Support</p>
+	</div>
+</body>
+</html>`, msg)
+			if err := h.smtpClient.SendHTMLEmail(emailFrom, "", subject, htmlBody); err != nil {
+				log.Printf("Failed to send ticket reply email to %s: %v", emailFrom, err)
+			}
+		}(ticket.EmailFrom, ticket.TicketNumber, update.Message)
 	}
 
 	c.JSON(http.StatusCreated, update)
