@@ -99,11 +99,11 @@ func (rg *ReportGenerator) GenerateMonthlyReport(ctx context.Context, customerID
 		// Track engineer stats
 		if ticket.EngineerID != nil {
 			if _, exists := engineerMap[*ticket.EngineerID]; !exists {
-				var engineer models.Engineer
+				var engineer models.User
 				rg.db.WithContext(ctx).First(&engineer, *ticket.EngineerID)
 				engineerMap[*ticket.EngineerID] = &engineerStats{
 					ID:   *ticket.EngineerID,
-					Name: engineer.Name,
+					Name: engineer.Email, // User model uses Email as identity
 				}
 			}
 			engineerMap[*ticket.EngineerID].Handled++
@@ -124,7 +124,7 @@ func (rg *ReportGenerator) GenerateMonthlyReport(ctx context.Context, customerID
 			Source:        ticket.Source,
 		}
 		if ticket.Engineer != nil {
-			summary.Engineer = ticket.Engineer.Name
+			summary.Engineer = ticket.Engineer.Email // User model uses Email
 		}
 		ticketsList = append(ticketsList, summary)
 	}
