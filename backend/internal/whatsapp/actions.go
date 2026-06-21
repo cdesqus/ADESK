@@ -122,7 +122,7 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 	}
 
 	// Send confirmation to customer (or group)
-	confirmMsg := fmt.Sprintf("Terima kasih! Kami buat tiket %s untuk Anda. Tim kami akan segera membantu.", ticket.TicketNumber)
+	confirmMsg := fmt.Sprintf("Siap, tiket sudah dibuatkan dengan nomor tiket *%s* ya. Tim kami akan segera mengeceknya! 🛠️", ticket.TicketNumber)
 	h.messageSender.SendMessage(sessionName, replyTo, confirmMsg)
 
 	log.Printf("Ticket created: %s from WhatsApp %s (ReplyTo: %s)", ticket.TicketNumber, senderPhone, replyTo)
