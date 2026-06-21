@@ -340,8 +340,16 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 				botNum = strings.Split(botNum, "@")[0]
 			}
 			
-			// Check if message mentions the bot
+			// Check if message mentions the bot's phone number
 			if botNum != "" && strings.Contains(msgEvent.Body, "@"+botNum) {
+				isDirectedToBot = true
+			}
+		}
+
+		// Fallback for visual mentions where WAHA might pass the contact name instead of number
+		if !isDirectedToBot {
+			reBotMention := regexp.MustCompile(`(?i)@helpdesk`)
+			if reBotMention.MatchString(msgEvent.Body) {
 				isDirectedToBot = true
 			}
 		}

@@ -16,8 +16,8 @@ type ParsedAction struct {
 func ParseMessage(body string, isDirectedToBot bool) *ParsedAction {
 	body = strings.TrimSpace(body)
 
-	// Strip mentions (e.g. @628123456789)
-	reMention := regexp.MustCompile(`@\d+\s*`)
+	// Strip mentions (e.g. @628123456789 or @Helpdesk IDE)
+	reMention := regexp.MustCompile(`(?i)@(?:helpdesk(?:\s+ide)?|\d+)\s*`)
 	cleanBody := reMention.ReplaceAllString(body, "")
 	cleanBody = strings.TrimSpace(cleanBody)
 
@@ -74,8 +74,8 @@ func ParseMessage(body string, isDirectedToBot bool) *ParsedAction {
 	}
 
 	// Check for explicit create ticket pattern: "tolong buatin tiket ..."
-	if matched, _ := regexp.MatchString(`(?i)tolong\s+buatin\s+tiket`, cleanBody); matched {
-		re := regexp.MustCompile(`(?i)tolong\s+buatin\s+tiket\s+(.+)`)
+	if matched, _ := regexp.MatchString(`(?i)tolong\s+buat(?:in|kan)\s+tiket`, cleanBody); matched {
+		re := regexp.MustCompile(`(?i)tolong\s+buat(?:in|kan)\s+tiket\s*(.+)`)
 		matches := re.FindStringSubmatch(cleanBody)
 		if len(matches) > 1 {
 			return &ParsedAction{
