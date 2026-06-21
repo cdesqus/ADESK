@@ -46,9 +46,33 @@ func Migrate(db *gorm.DB) error {
 		&models.WhatsAppLog{},
 		&models.MonthlyReport{},
 		&models.SystemSetting{},
+		&models.CustomerWAGroup{},
 	)
 	if err != nil {
-		return err
+		// If auto-migrate failed, it might be due to ticket_number unique constraint on existing rows.
+		// Let's try to fix existing rows if the column exists.
+		if db.Migrator().HasColumn(&models.Ticket{}, "TicketNumber") {
+			db.Exec("UPDATE tickets SET ticket_number = 'TK-MIG-' || id WHERE ticket_number IS NULL OR ticket_number = ''")
+		}
+		
+		// Retry migration
+		err = db.AutoMigrate(
+			&models.User{},
+			&models.Customer{},
+			&models.Engineer{},
+			&models.Ticket{},
+			&models.Update{},
+			&models.EmailLog{},
+			&models.WhatsAppSession{},
+			&models.EngineerWAPhone{},
+			&models.WhatsAppLog{},
+			&models.MonthlyReport{},
+			&models.SystemSetting{},
+			&models.CustomerWAGroup{},
+		)
+		if err != nil {
+			return err
+		}
 	}
 	
 	// Ensure customer_id can be null for Engineers handling all customers

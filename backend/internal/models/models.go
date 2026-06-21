@@ -82,7 +82,7 @@ type Engineer struct {
 // Ticket represents a support ticket
 type Ticket struct {
 	ID             uint           `gorm:"primaryKey" json:"id"`
-	TicketNumber   string         `gorm:"uniqueIndex;not null" json:"ticket_number"`
+	TicketNumber   string         `gorm:"uniqueIndex" json:"ticket_number"`
 	CustomerID     uint           `gorm:"index;not null" json:"customer_id"`
 	EngineerID     *uint          `gorm:"index" json:"engineer_id"`
 	Title          string         `gorm:"not null;index" json:"title"`
