@@ -366,8 +366,20 @@ func (h *EmailHandler) sendEngineerWhatsAppNotification(engineer *models.Enginee
 		emoji = "📋"
 	}
 
+	// Priority emoji
+	prioEmoji := map[string]string{"LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🟠", "URGENT": "🔴"}
+	pEmoji := prioEmoji[ticket.Priority]
+	if pEmoji == "" {
+		pEmoji = "⚪"
+	}
+
+	customerName := emailMsg.FromName
+	if customerName == "" {
+		customerName = "Unknown Customer"
+	}
+
 	message := fmt.Sprintf("🎫 *TICKET ASSIGNMENT*\n\nAnda ditugaskan untuk menangani tiket baru:\n\n%s *%s* — %s\n\n*Pelanggan:* %s\n*Kategori:* %s\n*Prioritas:* %s\n\n*Pesan:*\n_%s_%s",
-		priorityEmoji(ticket.Priority), ticket.TicketNumber, ticket.Title, customerName, ticket.Category, ticket.Priority, shortDesc, ticketURL)
+		pEmoji, ticket.TicketNumber, ticket.Title, customerName, ticket.Category, ticket.Priority, descPreview, ticketURL)
 
 	// Format phone number for WhatsApp (chatId format: number@c.us)
 	chatID := formatWANumber(waNumber)
