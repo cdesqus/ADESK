@@ -316,14 +316,46 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 		return
 	}
 
+	// Detect if it's a group
+	isGroup := strings.HasSuffix(msgEvent.From, "@g.us")
+	msgEvent.IsGroup = isGroup
+
+	// In groups, the actual sender is in the Participant field
+	senderPhone := msgEvent.From
+	if isGroup && msgEvent.Participant != "" {
+		senderPhone = msgEvent.Participant
+	}
+
+	// Determine if the message is directed to the bot
+	isDirectedToBot := !isGroup // Private messages are always directed to the bot
+	
+	// For group messages, check if the bot is mentioned
+	if isGroup {
+		var session models.WhatsAppSession
+		if err := h.db.First(&session, "session_name = ?", payload.Session).Error; err == nil {
+			// Get bot's number without the @c.us suffix
+			botNum := session.PhoneNumber
+			if strings.Contains(botNum, "@") {
+				botNum = strings.Split(botNum, "@")[0]
+			}
+			
+			// Check if message mentions the bot
+			if botNum != "" && strings.Contains(msgEvent.Body, "@"+botNum) {
+				isDirectedToBot = true
+			}
+		}
+	}
+
 	// Log the incoming message
 	h.logIncomingMessage(payload.Session, msgEvent)
 
 	// Parse message for actions
 	if msgEvent.Type == "text" {
-		action := whatsapp.ParseMessage(msgEvent.Body)
+		action := whatsapp.ParseMessage(msgEvent.Body, isDirectedToBot)
 		if action != nil {
-			go h.handleAction(payload.Session, msgEvent.From, action)
+			// Reply to the chat where the message originated (group or private)
+			replyTo := msgEvent.From
+			go h.handleAction(payload.Session, senderPhone, replyTo, isGroup, action)
 		}
 	}
 
@@ -349,26 +381,26 @@ func (h *WhatsAppHandler) logIncomingMessage(sessionName string, msg whatsapp.Me
 	}
 }
 
-func (h *WhatsAppHandler) handleAction(sessionName, fromPhone string, action *whatsapp.ParsedAction) {
+func (h *WhatsAppHandler) handleAction(sessionName, senderPhone, replyTo string, isGroup bool, action *whatsapp.ParsedAction) {
 	switch action.ActionType {
 	case "create_ticket":
-		if err := h.actionHandler.HandleCreateTicket(sessionName, fromPhone, action.Content); err != nil {
+		if err := h.actionHandler.HandleCreateTicket(sessionName, senderPhone, replyTo, isGroup, action.Content); err != nil {
 			log.Printf("Error handling create_ticket: %v", err)
 		}
 	case "update":
-		if err := h.actionHandler.HandleTicketUpdate(sessionName, fromPhone, action.TicketID, action.Content); err != nil {
+		if err := h.actionHandler.HandleTicketUpdate(sessionName, senderPhone, replyTo, isGroup, action.TicketID, action.Content); err != nil {
 			log.Printf("Error handling update: %v", err)
 		}
 	case "close":
-		if err := h.actionHandler.HandleTicketClose(sessionName, fromPhone, action.TicketID, action.Content); err != nil {
+		if err := h.actionHandler.HandleTicketClose(sessionName, senderPhone, replyTo, isGroup, action.TicketID, action.Content); err != nil {
 			log.Printf("Error handling close: %v", err)
 		}
 	case "reopen":
-		if err := h.actionHandler.HandleTicketReopen(sessionName, fromPhone, action.TicketID); err != nil {
+		if err := h.actionHandler.HandleTicketReopen(sessionName, senderPhone, replyTo, isGroup, action.TicketID); err != nil {
 			log.Printf("Error handling reopen: %v", err)
 		}
 	case "status_check":
-		if err := h.actionHandler.HandleStatusCheck(sessionName, fromPhone, action.TicketID); err != nil {
+		if err := h.actionHandler.HandleStatusCheck(sessionName, senderPhone, replyTo, isGroup, action.TicketID); err != nil {
 			log.Printf("Error handling status_check: %v", err)
 		}
 	}

@@ -60,7 +60,7 @@ func (h *CustomerHandler) GetCustomers(c *gin.Context) {
 	}
 
 	var customers []models.Customer
-	query := h.db.Offset((pageNum - 1) * limitNum).Limit(limitNum)
+	query := h.db.Offset((pageNum - 1) * limitNum).Limit(limitNum).Preload("WAGroups")
 
 	if isActive != "" {
 		query = query.Where("is_active = ?", isActive == "true")
@@ -100,7 +100,7 @@ func (h *CustomerHandler) GetCustomerByID(c *gin.Context) {
 	}
 
 	var customer models.Customer
-	if err := h.db.Preload("Engineers").Preload("Tickets").First(&customer, customerID).Error; err != nil {
+	if err := h.db.Preload("Engineers").Preload("Tickets").Preload("WAGroups").First(&customer, customerID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "customer not found"})
 			return
@@ -145,6 +145,20 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update customer", "details": err.Error()})
 		return
 	}
+
+	// Update WAGroups association if provided
+	// We check if it's sent in the request (even if empty, they might want to clear it)
+	// But in JSON, omitted means nil, while empty array means []
+	if updateReq.WAGroups != nil {
+		// Gorm Replace will clear old ones and insert new ones
+		if err := h.db.Model(&customer).Association("WAGroups").Replace(updateReq.WAGroups); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update WA groups", "details": err.Error()})
+			return
+		}
+	}
+
+	// Reload with associations
+	h.db.Preload("WAGroups").First(&customer, customerID)
 
 	c.JSON(http.StatusOK, customer)
 }

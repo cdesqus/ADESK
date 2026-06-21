@@ -3,6 +3,9 @@ package models
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/datatypes"
@@ -45,8 +48,9 @@ type Customer struct {
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Relations
-	Engineers []Engineer `gorm:"foreignKey:CustomerID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"engineers,omitempty"`
-	Tickets   []Ticket   `gorm:"foreignKey:CustomerID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"tickets,omitempty"`
+	Engineers []Engineer        `gorm:"foreignKey:CustomerID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"engineers,omitempty"`
+	Tickets   []Ticket          `gorm:"foreignKey:CustomerID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"tickets,omitempty"`
+	WAGroups  []CustomerWAGroup `gorm:"foreignKey:CustomerID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"wa_groups,omitempty"`
 }
 
 // SystemSetting represents a dynamic system configuration key-value pair
@@ -78,6 +82,7 @@ type Engineer struct {
 // Ticket represents a support ticket
 type Ticket struct {
 	ID             uint           `gorm:"primaryKey" json:"id"`
+	TicketNumber   string         `gorm:"uniqueIndex;not null" json:"ticket_number"`
 	CustomerID     uint           `gorm:"index;not null" json:"customer_id"`
 	EngineerID     *uint          `gorm:"index" json:"engineer_id"`
 	Title          string         `gorm:"not null;index" json:"title"`
@@ -97,11 +102,32 @@ type Ticket struct {
 
 	// Relations
 	Customer Customer `gorm:"foreignKey:CustomerID" json:"-"`
-	Engineer *Engineer `gorm:"foreignKey:EngineerID" json:"engineer,omitempty"`
-	Updates  []Update `gorm:"foreignKey:TicketID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"updates,omitempty"`
+	Engineer *User    `gorm:"foreignKey:EngineerID" json:"engineer,omitempty"`
+	Updates  []Update `gorm:"foreignKey:TicketID" json:"updates,omitempty"`
 }
 
-// Update represents an update/comment on a ticket
+// BeforeCreate generates the auto-increment ticket number
+func (t *Ticket) BeforeCreate(tx *gorm.DB) (err error) {
+	if t.TicketNumber == "" {
+		yearMonth := time.Now().Format("2006-01") // e.g. "2026-06"
+		var lastTicket Ticket
+		tx.Where("ticket_number LIKE ?", yearMonth+"-%").Order("id desc").First(&lastTicket)
+		
+		sequence := 1
+		if lastTicket.TicketNumber != "" {
+			parts := strings.Split(lastTicket.TicketNumber, "-")
+			if len(parts) == 3 {
+				if seq, err := strconv.Atoi(parts[2]); err == nil {
+					sequence = seq + 1
+				}
+			}
+		}
+		t.TicketNumber = fmt.Sprintf("%s-%03d", yearMonth, sequence)
+	}
+	return
+}
+
+// Update represents a status change or comment on a ticket
 type Update struct {
 	ID         uint           `gorm:"primaryKey" json:"id"`
 	TicketID   uint           `gorm:"index;not null" json:"ticket_id"`
@@ -246,6 +272,18 @@ type ReportData struct {
 	GeneratedAt   time.Time        `json:"generated_at"`
 	Metrics       ReportMetrics    `json:"metrics"`
 	TicketsList   []TicketSummary  `json:"tickets_list"`
+}
+
+// CustomerWAGroup maps a WhatsApp Group ID to a Customer
+type CustomerWAGroup struct {
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	CustomerID *uint     `gorm:"index" json:"customer_id"`
+	GroupID    string    `gorm:"uniqueIndex;not null" json:"group_id"` // 12036302@g.us
+	GroupName  string    `json:"group_name"`
+	IsSupport  bool      `gorm:"default:false" json:"is_support"` // True for IDE-SUPPORT internal group
+	CreatedAt  time.Time `json:"created_at"`
+
+	Customer *Customer `gorm:"foreignKey:CustomerID;constraint:OnDelete:SET NULL" json:"-"`
 }
 
 // TableName specifies table names for gorm

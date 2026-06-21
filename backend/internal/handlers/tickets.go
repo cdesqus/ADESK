@@ -1,13 +1,16 @@
 package handlers
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"ai-desk/internal/models"
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -293,4 +296,122 @@ func (h *TicketHandler) DeleteTicket(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusNoContent, nil)
+}
+
+// BulkTicketAction performs bulk actions on multiple tickets
+// POST /api/tickets/bulk
+func (h *TicketHandler) BulkTicketAction(c *gin.Context) {
+	var req struct {
+		TicketIDs []uint `json:"ticket_ids" binding:"required"`
+		Action    string `json:"action" binding:"required"` // "delete", "update_status", "update_priority"
+		Status    string `json:"status"`
+		Priority  string `json:"priority"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
+		return
+	}
+
+	if len(req.TicketIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no tickets selected"})
+		return
+	}
+
+	switch req.Action {
+	case "delete":
+		if err := h.db.Where("id IN ?", req.TicketIDs).Delete(&models.Ticket{}).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete tickets", "details": err.Error()})
+			return
+		}
+	case "update_status":
+		if req.Status == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "status is required for update_status action"})
+			return
+		}
+		updates := map[string]interface{}{"status": req.Status}
+		if req.Status == "RESOLVED" {
+			updates["resolved_at"] = time.Now()
+		}
+		if err := h.db.Model(&models.Ticket{}).Where("id IN ?", req.TicketIDs).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update status", "details": err.Error()})
+			return
+		}
+	case "update_priority":
+		if req.Priority == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "priority is required for update_priority action"})
+			return
+		}
+		if err := h.db.Model(&models.Ticket{}).Where("id IN ?", req.TicketIDs).Update("priority", req.Priority).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update priority", "details": err.Error()})
+			return
+		}
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid action"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "bulk action completed successfully"})
+}
+
+// BulkExportExcel exports selected tickets to an Excel file
+// POST /api/tickets/bulk-export
+func (h *TicketHandler) BulkExportExcel(c *gin.Context) {
+	var req struct {
+		TicketIDs []uint `json:"ticket_ids" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
+		return
+	}
+
+	if len(req.TicketIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no tickets selected"})
+		return
+	}
+
+	var tickets []models.Ticket
+	if err := h.db.Preload("Customer").Where("id IN ?", req.TicketIDs).Order("created_at DESC").Find(&tickets).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch tickets"})
+		return
+	}
+
+	f := excelize.NewFile()
+	defer func() {
+		if err := f.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+
+	sheet := "Sheet1"
+	headers := []string{"Ticket Number", "Title", "Customer", "Status", "Priority", "Created At"}
+	for i, header := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, header)
+	}
+
+	for i, ticket := range tickets {
+		row := i + 2
+		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), ticket.TicketNumber)
+		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), ticket.Title)
+		customerName := ""
+		if ticket.Customer.ID != 0 {
+			customerName = ticket.Customer.Name
+		}
+		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), customerName)
+		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), ticket.Status)
+		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), ticket.Priority)
+		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), ticket.CreatedAt.Format("2006-01-02 15:04:05"))
+	}
+
+	var buf bytes.Buffer
+	if err := f.Write(&buf); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate excel file"})
+		return
+	}
+
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", `attachment; filename="tickets_export.xlsx"`)
+	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf.Bytes())
 }

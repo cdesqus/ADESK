@@ -176,7 +176,7 @@ export const DashboardPage: React.FC = () => {
                                 {ticket.title}
                               </p>
                               <p className="text-xs text-gray-500 mt-0.5">
-                                {ticket.customer?.name || 'Unknown Customer'}
+                                #{ticket.ticket_number || ticket.id} • {ticket.customer?.name || 'Unknown Customer'}
                               </p>
                             </div>
                           </div>

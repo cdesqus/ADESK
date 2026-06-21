@@ -165,6 +165,30 @@ class ApiService {
     await this.api.delete(`/tickets/${id}`);
   }
 
+  async bulkTicketAction(
+    ticketIds: string[],
+    action: 'delete' | 'update_status' | 'update_priority',
+    status?: string,
+    priority?: string
+  ): Promise<{ message: string }> {
+    const response = await this.api.post<{ message: string }>('/tickets/bulk', {
+      ticket_ids: ticketIds.map((id) => parseInt(id, 10)),
+      action,
+      status,
+      priority,
+    });
+    return response.data;
+  }
+
+  async bulkExportExcel(ticketIds: string[]): Promise<Blob> {
+    const response = await this.api.post<Blob>('/tickets/bulk-export', {
+      ticket_ids: ticketIds.map((id) => parseInt(id, 10))
+    }, {
+      responseType: 'blob'
+    });
+    return response.data;
+  }
+
   async getTicketUpdates(ticketId: string): Promise<TicketUpdate[]> {
     const response = await this.api.get<any>(`/tickets/${ticketId}/updates`);
     const updateList = response.data.data || [];

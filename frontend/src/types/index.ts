@@ -54,10 +54,15 @@ export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface Ticket {
   id: string;
+  ticket_number?: string;
   title: string;
   description: string;
   status: TicketStatus;
   priority: TicketPriority;
+  category: string;
+  source: string;
+  email_from?: string;
+  whatsapp_from?: string;
   customerId: string;
   assignedEngineerId?: string;
   createdAt: string;
@@ -86,6 +91,14 @@ export interface TicketUpdate {
   user: User;
 }
 
+export interface CustomerWAGroup {
+  id?: number;
+  customer_id?: number;
+  group_id: string;
+  group_name: string;
+  is_support: boolean;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -94,6 +107,7 @@ export interface Customer {
   address?: string;
   is_active?: boolean;
   createdAt: string;
+  wa_groups?: CustomerWAGroup[];
 }
 
 export interface Engineer {

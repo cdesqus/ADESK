@@ -126,8 +126,8 @@ export const TicketDetailPage: React.FC = () => {
         <div className="mb-6">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
             <div>
-              <p className="text-sm font-medium text-gray-600 mb-2">Ticket ID: {String(ticket.id).slice(0, 8)}</p>
-              <h1 className="text-3xl font-semibold text-gray-900">{ticket.title}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{ticket.title}</h1>
+              <p className="text-sm font-medium text-gray-600 mb-2">Ticket Number: #{ticket.ticket_number || ticket.id}</p>
             </div>
             <div>
               <span className={`inline-flex px-3 py-1.5 rounded-full text-sm font-medium ${(statusColors[ticket.status.toLowerCase() as TicketStatus] || statusColors.open).bg} ${(statusColors[ticket.status.toLowerCase() as TicketStatus] || statusColors.open).text}`}>

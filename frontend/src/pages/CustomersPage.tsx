@@ -11,7 +11,13 @@ export const CustomersPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', domain: '', email_support: '', address: '' });
+  const [formData, setFormData] = useState<{
+    name: string;
+    domain: string;
+    email_support: string;
+    address: string;
+    wa_groups: { group_id: string; group_name: string; is_support: boolean }[];
+  }>({ name: '', domain: '', email_support: '', address: '', wa_groups: [] });
   const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
@@ -42,7 +48,7 @@ export const CustomersPage: React.FC = () => {
     if (!formData.name) return;
     try {
       await apiService.createCustomer(formData);
-      setFormData({ name: '', domain: '', email_support: '', address: '' });
+      setFormData({ name: '', domain: '', email_support: '', address: '', wa_groups: [] });
       setIsAdding(false);
       fetchCustomers();
     } catch (err) {
@@ -54,7 +60,7 @@ export const CustomersPage: React.FC = () => {
     try {
       await apiService.updateCustomer(id, formData);
       setEditingId(null);
-      setFormData({ name: '', domain: '', email_support: '', address: '' });
+      setFormData({ name: '', domain: '', email_support: '', address: '', wa_groups: [] });
       fetchCustomers();
     } catch (err) {
       console.error('Failed to update customer:', err);
@@ -73,7 +79,36 @@ export const CustomersPage: React.FC = () => {
 
   const handleEdit = (customer: Customer) => {
     setEditingId(customer.id);
-    setFormData({ name: customer.name, domain: customer.domain || '', email_support: customer.email_support || '', address: customer.address || '' });
+    setFormData({
+      name: customer.name,
+      domain: customer.domain || '',
+      email_support: customer.email_support || '',
+      address: customer.address || '',
+      wa_groups: customer.wa_groups?.map(g => ({
+        group_id: g.group_id,
+        group_name: g.group_name,
+        is_support: g.is_support
+      })) || []
+    });
+  };
+
+  const handleAddWaGroup = () => {
+    setFormData({
+      ...formData,
+      wa_groups: [...formData.wa_groups, { group_id: '', group_name: '', is_support: false }]
+    });
+  };
+
+  const handleRemoveWaGroup = (index: number) => {
+    const newGroups = [...formData.wa_groups];
+    newGroups.splice(index, 1);
+    setFormData({ ...formData, wa_groups: newGroups });
+  };
+
+  const handleWaGroupChange = (index: number, field: string, value: any) => {
+    const newGroups = [...formData.wa_groups];
+    newGroups[index] = { ...newGroups[index], [field]: value };
+    setFormData({ ...formData, wa_groups: newGroups });
   };
 
   return (
@@ -120,6 +155,48 @@ export const CustomersPage: React.FC = () => {
               value={formData.address || ''}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
             />
+
+            {/* WhatsApp Groups Mapping */}
+            <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mt-4 mb-4">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="text-sm font-semibold text-gray-900">WhatsApp Groups Mapping</h4>
+                <Button size="sm" variant="outline" onClick={handleAddWaGroup}>+ Add Group</Button>
+              </div>
+              {formData.wa_groups.length === 0 ? (
+                <p className="text-xs text-gray-500">No WhatsApp groups mapped.</p>
+              ) : (
+                <div className="space-y-3">
+                  {formData.wa_groups.map((group, index) => (
+                    <div key={index} className="flex gap-2 items-center bg-white p-2 border border-gray-200 rounded-md">
+                      <Input 
+                        placeholder="Group ID (e.g. 123@g.us)" 
+                        value={group.group_id} 
+                        onChange={(e) => handleWaGroupChange(index, 'group_id', e.target.value)}
+                        className="flex-1"
+                      />
+                      <Input 
+                        placeholder="Group Name" 
+                        value={group.group_name} 
+                        onChange={(e) => handleWaGroupChange(index, 'group_name', e.target.value)}
+                        className="flex-1"
+                      />
+                      <label className="flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap px-2">
+                        <input 
+                          type="checkbox" 
+                          checked={group.is_support} 
+                          onChange={(e) => handleWaGroupChange(index, 'is_support', e.target.checked)}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        Is Support
+                      </label>
+                      <Button size="sm" variant="ghost" onClick={() => handleRemoveWaGroup(index)}>
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex gap-3">
               <Button onClick={handleAdd}>Create</Button>
               <Button variant="outline" onClick={() => { setIsAdding(false); setFormData({ name: '', domain: '', email_support: '', address: '' }); }}>
@@ -181,6 +258,48 @@ export const CustomersPage: React.FC = () => {
                 <Input value={formData.domain} onChange={(e) => setFormData({ ...formData, domain: e.target.value })} placeholder="Email Domain (e.g. kaumtech.com)" />
                 <Input value={formData.email_support} onChange={(e) => setFormData({ ...formData, email_support: e.target.value })} placeholder="Support Email" />
                 <Input value={formData.address || ''} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Address" />
+                
+                {/* WhatsApp Groups Mapping */}
+                <div className="border border-gray-200 rounded-md p-4 bg-white mt-4 mb-4 shadow-sm">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="text-sm font-semibold text-gray-900">WhatsApp Groups Mapping</h4>
+                    <Button size="sm" variant="outline" onClick={handleAddWaGroup}>+ Add Group</Button>
+                  </div>
+                  {formData.wa_groups.length === 0 ? (
+                    <p className="text-xs text-gray-500">No WhatsApp groups mapped.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {formData.wa_groups.map((group, index) => (
+                        <div key={index} className="flex gap-2 items-center bg-gray-50 p-2 border border-gray-200 rounded-md">
+                          <Input 
+                            placeholder="Group ID (e.g. 123@g.us)" 
+                            value={group.group_id} 
+                            onChange={(e) => handleWaGroupChange(index, 'group_id', e.target.value)}
+                            className="flex-1"
+                          />
+                          <Input 
+                            placeholder="Group Name" 
+                            value={group.group_name} 
+                            onChange={(e) => handleWaGroupChange(index, 'group_name', e.target.value)}
+                            className="flex-1"
+                          />
+                          <label className="flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap px-2">
+                            <input 
+                              type="checkbox" 
+                              checked={group.is_support} 
+                              onChange={(e) => handleWaGroupChange(index, 'is_support', e.target.checked)}
+                              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            />
+                            Is Support
+                          </label>
+                          <Button size="sm" variant="ghost" onClick={() => handleRemoveWaGroup(index)}>
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="flex gap-3">
                   <Button onClick={() => handleUpdate(editingId)}>Save</Button>
                   <Button variant="outline" onClick={() => { setEditingId(null); setFormData({ name: '', domain: '', email_support: '', address: '' }); }}>

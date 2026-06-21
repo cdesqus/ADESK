@@ -81,7 +81,7 @@ export const useTickets = () => {
     try {
       setError(null);
       await apiService.deleteTicket(id);
-      setTickets((prev) => prev.filter((ticket) => ticket.id !== id));
+      setTickets((prev) => prev.filter((ticket) => ticket.id.toString() !== id.toString()));
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to delete ticket';
       setError(errorMsg);

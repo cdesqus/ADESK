@@ -92,6 +92,9 @@ func main() {
 	actionHandler := whatsapp.NewActionHandler(database, messageSender, wahaClient)
 	whatsappHandler := handlers.NewWhatsAppHandler(database, wahaClient, messageSender, actionHandler)
 
+	// Start daily WhatsApp summary scheduler (e.g. at 08:00 AM)
+	whatsapp.StartDailyScheduler(database, messageSender, 8, 0)
+
 	// Read email settings from SystemSetting to override env values BEFORE creating SMTP client
 	var setting models.SystemSetting
 	if err := database.Where("key = ?", "EMAIL_IMAP_HOST").First(&setting).Error; err == nil {
@@ -251,6 +254,8 @@ func setupRoutes(
 	tickets := protected.Group("/tickets")
 	{
 		tickets.POST("", ticketHandler.CreateTicket)
+		tickets.POST("/bulk", ticketHandler.BulkTicketAction)
+		tickets.POST("/bulk-export", ticketHandler.BulkExportExcel)
 		tickets.GET("", ticketHandler.GetTickets)
 		tickets.GET("/:id", ticketHandler.GetTicketByID)
 		tickets.PUT("/:id", ticketHandler.UpdateTicket)

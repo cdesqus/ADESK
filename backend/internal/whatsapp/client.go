@@ -61,14 +61,16 @@ type WebhookPayload struct {
 }
 
 type MessageEvent struct {
-	ID        string    `json:"id"`
-	From      string    `json:"from"`
-	To        string    `json:"to"`
-	Body      string    `json:"body"`
-	Timestamp int64     `json:"timestamp"`
-	Type      string    `json:"type"`
-	HasMedia  bool      `json:"hasMedia"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID          string    `json:"id"`
+	From        string    `json:"from"`
+	To          string    `json:"to"`
+	Participant string    `json:"participant"`
+	Body        string    `json:"body"`
+	Timestamp   int64     `json:"timestamp"`
+	Type        string    `json:"type"`
+	HasMedia    bool      `json:"hasMedia"`
+	CreatedAt   time.Time `json:"createdAt"`
+	IsGroup     bool      `json:"-"` // Helper field, not from JSON
 }
 
 func NewWahaClient(baseURL string, apiKey string) *WahaClient {

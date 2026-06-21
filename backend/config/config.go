@@ -61,6 +61,9 @@ type Config struct {
 
 	// AI Configuration
 	OpenAIKey string
+
+	// Frontend
+	FrontendURL string
 }
 
 func Load() *Config {
@@ -152,6 +155,9 @@ func Load() *Config {
 		// Environment
 		Environment: getEnv("ENVIRONMENT", "development"),
 		OpenAIKey:   getEnv("OPENAI_API_KEY", ""),
+
+		// Frontend
+		FrontendURL: getEnv("FRONTEND_URL", "https://aidesk.kaumtech.com"),
 	}
 
 	// Validate required env vars in production

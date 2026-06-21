@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"ai-desk/internal/email"
@@ -86,18 +87,18 @@ func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*mod
 		logEntry.DomainMatched = "UNKNOWN"
 	}
 
-	// Check if this is a reply to an existing ticket (subject contains [TK-123])
+	// Check if this is a reply to an existing ticket (subject contains [2026-06-001])
 	var existingTicketID uint
-	re := regexp.MustCompile(`\[TK-(\d+)\]`)
+	var existingTicket models.Ticket
+	re := regexp.MustCompile(`\[(\d{4}-\d{2}-\d{3,})\]`)
 	matches := re.FindStringSubmatch(emailMsg.Subject)
 	if len(matches) > 1 {
-		if id, err := strconv.ParseUint(matches[1], 10, 32); err == nil {
-			var checkTicket models.Ticket
-			if err := h.db.First(&checkTicket, id).Error; err == nil {
-				existingTicketID = uint(id)
-			}
+		ticketNum := matches[1]
+		if err := h.db.Where("ticket_number = ?", ticketNum).First(&existingTicket).Error; err == nil {
+			existingTicketID = existingTicket.ID
 		}
 	}
+
 
 	if existingTicketID > 0 {
 		// Append as comment
@@ -117,7 +118,7 @@ func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*mod
 		logEntry.TicketID = &existingTicketID
 		logEntry.Status = "SUCCESS"
 
-		log.Printf("Email reply appended to ticket TK-%d from %s", existingTicketID, emailMsg.From)
+		log.Printf("Email reply appended to ticket %s from %s", existingTicket.TicketNumber, emailMsg.From)
 
 		var ticket models.Ticket
 		h.db.First(&ticket, existingTicketID)
@@ -150,7 +151,7 @@ func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*mod
 	logEntry.TicketID = &ticketID
 	logEntry.Status = "SUCCESS"
 
-	log.Printf("Ticket created: TK-%d for customer %s from email %s", ticket.ID, matchResult.CustomerName, emailMsg.From)
+	log.Printf("Ticket created: %s for customer %s from email %s", ticket.TicketNumber, matchResult.CustomerName, emailMsg.From)
 
 	return &ticket, logEntry, nil
 }
@@ -170,13 +171,37 @@ func (h *EmailHandler) ProcessEmailWithLogging(emailMsg *email.EmailMessage) (*m
 		return nil, err
 	}
 
-	// Send auto-reply if ticket created successfully
+	// Send auto-reply with AI classification if ticket created successfully
 	if ticket != nil {
 		var customer models.Customer
 		if err := h.db.First(&customer, ticket.CustomerID).Error; err == nil {
-			if err := h.smtpClient.SendAutoReply(emailMsg.From, emailMsg.FromName, emailMsg.Subject, ticket.ID, &customer, emailMsg.Body, h.cfg.OpenAIKey); err != nil {
-				log.Printf("Failed to send auto-reply: %v", err)
-				// Don't fail if auto-reply fails, just log it
+			classification, replyErr := h.smtpClient.SendAutoReplyWithClassification(
+				emailMsg.From, emailMsg.FromName, emailMsg.Subject,
+				ticket.TicketNumber, ticket.ID, &customer, emailMsg.Body,
+				h.cfg.OpenAIKey, h.cfg.FrontendURL,
+			)
+			if replyErr != nil {
+				log.Printf("Failed to send auto-reply: %v", replyErr)
+			}
+
+			// Update ticket with AI classification
+			if classification != nil {
+				updates := map[string]interface{}{}
+				if classification.Category != "" {
+					updates["category"] = classification.Category
+				}
+				if classification.Priority != "" {
+					updates["priority"] = classification.Priority
+				}
+				if len(updates) > 0 {
+					if err := h.db.Model(ticket).Updates(updates).Error; err != nil {
+						log.Printf("Failed to update ticket classification: %v", err)
+					} else {
+						// Reload ticket with updated fields
+						h.db.First(ticket, ticket.ID)
+						log.Printf("[AI] Ticket %s classified: category=%s, priority=%s", ticket.TicketNumber, ticket.Category, ticket.Priority)
+					}
+				}
 			}
 		}
 
@@ -197,18 +222,18 @@ func (h *EmailHandler) autoAssignAndNotify(ticket *models.Ticket, emailMsg *emai
 	// Find available engineer for this customer (round-robin by least assigned tickets)
 	engineer := h.findAvailableEngineer(ticket.CustomerID)
 	if engineer == nil {
-		log.Printf("[EmailNotify] No available engineer found for customer %d, ticket TK-%d", ticket.CustomerID, ticket.ID)
+		log.Printf("[EmailNotify] No available engineer found for customer %d, ticket %s", ticket.CustomerID, ticket.TicketNumber)
 		return
 	}
 
 	// Assign engineer to ticket
 	ticket.EngineerID = &engineer.ID
 	if err := h.db.Model(ticket).Update("engineer_id", engineer.ID).Error; err != nil {
-		log.Printf("[EmailNotify] Failed to assign engineer %d to ticket TK-%d: %v", engineer.ID, ticket.ID, err)
+		log.Printf("[EmailNotify] Failed to assign engineer %d to ticket %s: %v", engineer.ID, ticket.TicketNumber, err)
 		return
 	}
 
-	log.Printf("[EmailNotify] Auto-assigned engineer %s (ID:%d) to ticket TK-%d", engineer.Name, engineer.ID, ticket.ID)
+	log.Printf("[EmailNotify] Auto-assigned engineer %s (ID:%d) to ticket %s", engineer.Name, engineer.ID, ticket.TicketNumber)
 
 	// Send email notification to engineer
 	go h.sendEngineerEmailNotification(engineer, ticket, emailMsg)
@@ -254,47 +279,22 @@ func (h *EmailHandler) findAvailableEngineer(customerID uint) *models.Engineer {
 	return bestEngineer
 }
 
-// sendEngineerEmailNotification sends an email notification to the assigned engineer
+// sendEngineerEmailNotification sends a professional HTML email notification to the assigned engineer
 func (h *EmailHandler) sendEngineerEmailNotification(engineer *models.Engineer, ticket *models.Ticket, emailMsg *email.EmailMessage) {
 	if engineer.Email == "" {
 		log.Printf("[EmailNotify] Engineer %s has no email, skipping email notification", engineer.Name)
 		return
 	}
 
-	subject := fmt.Sprintf("[AI-DESK] Tiket Baru TK-%d Ditugaskan Kepada Anda", ticket.ID)
+	subject := fmt.Sprintf("[AI-DESK] Tiket Baru %s Ditugaskan Kepada Anda", ticket.TicketNumber)
 
-	// Truncate description for preview
-	descPreview := ticket.Description
-	if len(descPreview) > 500 {
-		descPreview = descPreview[:500] + "..."
+	// Build ticket URL
+	ticketURL := ""
+	if h.cfg.FrontendURL != "" {
+		ticketURL = fmt.Sprintf("%s/tickets/%d", strings.TrimRight(h.cfg.FrontendURL, "/"), ticket.ID)
 	}
 
-	body := fmt.Sprintf(`Halo %s,
-
-Anda mendapat tiket baru yang membutuhkan perhatian Anda.
-
-══════════════════════════════════════
-📋 DETAIL TIKET
-══════════════════════════════════════
-  Ticket ID  : TK-%d
-  Judul      : %s
-  Prioritas  : %s
-  Sumber     : %s
-  Dari       : %s
-  Waktu      : %s
-
-══════════════════════════════════════
-📝 ISI PESAN
-══════════════════════════════════════
-%s
-
-══════════════════════════════════════
-
-Silakan segera tindak lanjuti tiket ini.
-Akses dashboard AI-DESK untuk detail lebih lanjut.
-
-Salam,
-%s System`,
+	htmlBody := email.BuildEngineerNotificationHTML(
 		engineer.Name,
 		ticket.ID,
 		ticket.Title,
@@ -302,14 +302,16 @@ Salam,
 		ticket.Source,
 		emailMsg.From,
 		ticket.CreatedAt.Format("02 Jan 2006 15:04 WIB"),
-		descPreview,
+		ticket.Description,
+		ticketURL,
 		h.cfg.EmailFromName,
+		ticket.Category,
 	)
 
-	if err := h.smtpClient.SendEmailWithAttachments(engineer.Email, subject, body, nil); err != nil {
+	if err := h.smtpClient.SendHTMLEmail(engineer.Email, subject, htmlBody); err != nil {
 		log.Printf("[EmailNotify] Failed to send email notification to engineer %s (%s): %v", engineer.Name, engineer.Email, err)
 	} else {
-		log.Printf("[EmailNotify] Email notification sent to engineer %s (%s) for ticket TK-%d", engineer.Name, engineer.Email, ticket.ID)
+		log.Printf("[EmailNotify] Email notification sent to engineer %s (%s) for ticket %s", engineer.Name, engineer.Email, ticket.TicketNumber)
 	}
 }
 
@@ -351,43 +353,44 @@ func (h *EmailHandler) sendEngineerWhatsAppNotification(engineer *models.Enginee
 		descPreview = descPreview[:300] + "..."
 	}
 
-	message := fmt.Sprintf(`🔔 *Tiket Baru Ditugaskan*
+	// Build ticket URL
+	ticketURL := ""
+	if h.cfg.FrontendURL != "" {
+		ticketURL = fmt.Sprintf("\n\n🔗 %s/tickets/%d", strings.TrimRight(h.cfg.FrontendURL, "/"), ticket.ID)
+	}
 
-📋 *TK-%d* — %s
-📌 Prioritas: %s
-📧 Dari: %s
-🕐 %s
+	// Category emoji
+	catEmoji := map[string]string{"PROBLEM": "🔴", "REQUEST": "🔵", "INQUIRY": "🟡", "FEEDBACK": "🟢"}
+	emoji := catEmoji[ticket.Category]
+	if emoji == "" {
+		emoji = "📋"
+	}
 
-📝 *Isi Pesan:*
-%s
-
-Silakan cek dashboard AI-DESK untuk detail.`,
-		ticket.ID,
-		ticket.Title,
-		ticket.Priority,
-		emailMsg.From,
-		ticket.CreatedAt.Format("02 Jan 2006 15:04"),
-		descPreview,
-	)
+	message := fmt.Sprintf("🎫 *TICKET ASSIGNMENT*\n\nAnda ditugaskan untuk menangani tiket baru:\n\n%s *%s* — %s\n\n*Pelanggan:* %s\n*Kategori:* %s\n*Prioritas:* %s\n\n*Pesan:*\n_%s_%s",
+		priorityEmoji(ticket.Priority), ticket.TicketNumber, ticket.Title, customerName, ticket.Category, ticket.Priority, shortDesc, ticketURL)
 
 	// Format phone number for WhatsApp (chatId format: number@c.us)
-	chatID := waNumber
-	if !regexp.MustCompile(`@`).MatchString(chatID) {
-		// Strip non-numeric chars
-		cleanNumber := ""
-		for _, c := range chatID {
-			if c >= '0' && c <= '9' {
-				cleanNumber += string(c)
-			}
-		}
-		chatID = cleanNumber + "@c.us"
-	}
+	chatID := formatWANumber(waNumber)
 
 	if err := h.messageSender.SendMessage(session.SessionName, chatID, message); err != nil {
 		log.Printf("[WANotify] Failed to send WhatsApp notification to engineer %s (%s): %v", engineer.Name, waNumber, err)
 	} else {
-		log.Printf("[WANotify] WhatsApp notification sent to engineer %s (%s) for ticket TK-%d", engineer.Name, waNumber, ticket.ID)
+		log.Printf("[WANotify] WhatsApp notification sent to engineer %s (%s) for ticket %s", engineer.Name, waNumber, ticket.TicketNumber)
 	}
+}
+
+// formatWANumber formats a phone number for WhatsApp chatId
+func formatWANumber(phone string) string {
+	if strings.Contains(phone, "@") {
+		return phone
+	}
+	cleanNumber := ""
+	for _, c := range phone {
+		if c >= '0' && c <= '9' {
+			cleanNumber += string(c)
+		}
+	}
+	return cleanNumber + "@c.us"
 }
 
 // EmailWebhookRequest represents the webhook request payload
