@@ -352,6 +352,41 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 	// Parse message for actions
 	if msgEvent.Type == "text" {
 		action := whatsapp.ParseMessage(msgEvent.Body, isDirectedToBot)
+
+		// Check for quoted message (swipe reply)
+		var rawData map[string]interface{}
+		_ = json.Unmarshal(payload.Data, &rawData)
+		
+		quotedBody := ""
+		if hasQuoted, ok := rawData["hasQuotedMsg"].(bool); ok && hasQuoted {
+			if _data, ok := rawData["_data"].(map[string]interface{}); ok {
+				if quotedMsg, ok := _data["quotedMsg"].(map[string]interface{}); ok {
+					if qBody, ok := quotedMsg["body"].(string); ok {
+						quotedBody = qBody
+					}
+				}
+			}
+		}
+
+		// If it's directed to bot (either private or mentioned) and has a quoted message with a ticket ID
+		if isDirectedToBot && quotedBody != "" {
+			re := regexp.MustCompile(`(?i)(\d{4}-\d{2}-\d{3,})`)
+			matches := re.FindStringSubmatch(quotedBody)
+			if len(matches) > 1 {
+				ticketID := matches[1]
+				// Clean the @mention from the body for the update content
+				reMention := regexp.MustCompile(`@\d+\s*`)
+				cleanContent := strings.TrimSpace(reMention.ReplaceAllString(msgEvent.Body, ""))
+				
+				// Overwrite action to be an update
+				action = &whatsapp.ParsedAction{
+					ActionType: "update",
+					TicketID:   ticketID,
+					Content:    cleanContent,
+				}
+			}
+		}
+
 		if action != nil {
 			// Reply to the chat where the message originated (group or private)
 			replyTo := msgEvent.From

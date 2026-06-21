@@ -51,15 +51,15 @@ func (sc *SMTPClient) SendAutoReplyWithClassification(toEmail, toName, subject s
 	// Default fallback body
 	body := buildAutoReplyBody(ticketNum, customer, toName, sc.fromName)
 
+	customerName := "Valued Customer"
+	if toName != "" {
+		customerName = toName
+	} else if customer != nil && customer.Name != "" && customer.Name != "Unknown Customer" {
+		customerName = customer.Name
+	}
+
 	// Try AI classification + reply
 	if openAIKey != "" {
-		customerName := "Valued Customer"
-		if toName != "" {
-			customerName = toName
-		} else if customer != nil && customer.Name != "" && customer.Name != "Unknown Customer" {
-			customerName = customer.Name
-		}
-
 		aiClient := ai.NewOpenAIClient(openAIKey)
 		var err error
 		classification, err = aiClient.ClassifyAndReply(emailBody, customerName, sc.fromName, ticketNum)
