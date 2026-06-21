@@ -88,6 +88,10 @@ func (h *UpdateHandler) CreateUpdate(c *gin.Context) {
 
 	// Send email to customer if requested
 	if req.SendEmail && ticket.EmailFrom != "" {
+		// Auto-change status to WAITING_CUSTOMER when replying
+		ticket.Status = "WAITING_CUSTOMER"
+		h.db.Save(&ticket)
+
 		go func(emailFrom, ticketNum, msg string) {
 			subject := fmt.Sprintf("[AI-DESK] Re: [%s] Update Tiket", ticketNum)
 			htmlBody := fmt.Sprintf(`<!DOCTYPE html>
@@ -95,14 +99,9 @@ func (h *UpdateHandler) CreateUpdate(c *gin.Context) {
 <body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6; font-size: 14px; padding: 10px;">
 	<div>
 		%s
-		<p>Berikut adalah no ticket anda: <strong>%s</strong></p>
-		<br>
-		<p>Salam,</p>
-		<p>Best Regards,</p>
-		<p>Helpdesk IDE Solusi</p>
 	</div>
 </body>
-</html>`, msg, ticketNum)
+</html>`, msg)
 			if err := h.smtpClient.SendHTMLEmail(emailFrom, "", subject, htmlBody); err != nil {
 				log.Printf("Failed to send ticket reply email to %s: %v", emailFrom, err)
 			}

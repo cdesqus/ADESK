@@ -70,6 +70,12 @@ export const TicketDetailPage: React.FC = () => {
       setComments([...comments, newComment]);
       setCommentText('');
       setActiveTab('internal');
+
+      // Auto-update status locally if it was an email reply
+      if (isEmail && ticket) {
+        setTicket({ ...ticket, status: 'waiting_customer' });
+        setNewStatus('waiting_customer');
+      }
     } catch (err) {
       console.error('Failed to add comment:', err);
     } finally {
