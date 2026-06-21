@@ -41,7 +41,7 @@ func NewEmailHandler(db *gorm.DB, domainMatcher *email.DomainMatcher, smtpClient
 
 // CreateTicketFromEmail creates a ticket from parsed email data
 // POST /api/email/webhook (internal only)
-func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*models.Ticket, *models.EmailLog, error) {
+func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*models.Ticket, bool, *models.EmailLog, error) {
 	log.Printf("Processing email from %s with subject: %s", emailMsg.From, emailMsg.Subject)
 
 	// Initialize log entry
@@ -73,12 +73,12 @@ func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*mod
 				if err := h.db.Create(&unknownCustomer).Error; err != nil {
 					logEntry.Status = "FAILED"
 					logEntry.ErrorMessage = "Failed to create unknown customer: " + err.Error()
-					return nil, logEntry, err
+					return nil, false, logEntry, err
 				}
 			} else {
 				logEntry.Status = "FAILED"
 				logEntry.ErrorMessage = "Database error: " + err.Error()
-				return nil, logEntry, err
+				return nil, false, logEntry, err
 			}
 		}
 
@@ -122,7 +122,7 @@ func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*mod
 
 		var ticket models.Ticket
 		h.db.First(&ticket, existingTicketID)
-		return &ticket, logEntry, nil
+		return &ticket, false, logEntry, nil
 	}
 
 	logEntry.DomainMatched = email.ExtractDomain(emailMsg.From)
@@ -144,7 +144,7 @@ func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*mod
 		logEntry.Status = "FAILED"
 		logEntry.ErrorMessage = "Failed to create ticket: " + err.Error()
 		log.Printf("Failed to create ticket: %v", err)
-		return nil, logEntry, err
+		return nil, false, logEntry, err
 	}
 
 	ticketID := ticket.ID
@@ -153,12 +153,12 @@ func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*mod
 
 	log.Printf("Ticket created: %s for customer %s from email %s", ticket.TicketNumber, matchResult.CustomerName, emailMsg.From)
 
-	return &ticket, logEntry, nil
+	return &ticket, true, logEntry, nil
 }
 
 // ProcessEmailWithLogging creates ticket and logs the process
 func (h *EmailHandler) ProcessEmailWithLogging(emailMsg *email.EmailMessage) (*models.Ticket, error) {
-	ticket, logEntry, err := h.CreateTicketFromEmail(emailMsg)
+	ticket, isNew, logEntry, err := h.CreateTicketFromEmail(emailMsg)
 
 	// Save log entry
 	if logEntry != nil {
@@ -171,8 +171,8 @@ func (h *EmailHandler) ProcessEmailWithLogging(emailMsg *email.EmailMessage) (*m
 		return nil, err
 	}
 
-	// Send auto-reply with AI classification if ticket created successfully
-	if ticket != nil {
+	// Send auto-reply with AI classification if ticket created successfully AND it's a new ticket
+	if ticket != nil && isNew {
 		var customer models.Customer
 		if err := h.db.First(&customer, ticket.CustomerID).Error; err == nil {
 			classification, replyErr := h.smtpClient.SendAutoReplyWithClassification(

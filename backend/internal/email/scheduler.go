@@ -64,8 +64,8 @@ func runDailyOpenTicketSummary(db *gorm.DB, smtpClient *SMTPClient, companyName,
 		}
 
 		engineerName := "Unassigned"
-		if t.Engineer != nil && t.Engineer.Name != "" {
-			engineerName = t.Engineer.Name
+		if t.Engineer != nil && t.Engineer.Email != "" {
+			engineerName = t.Engineer.Email
 		}
 
 		linkHTML := fmt.Sprintf(`<a href="%s" style="color: #2563eb; text-decoration: none; font-weight: 600;">%s</a>`, ticketURL, t.TicketNumber)

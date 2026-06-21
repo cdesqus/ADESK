@@ -83,7 +83,6 @@ func main() {
 	authHandler := handlers.NewAuthHandler(database, cfg.JWTSecret)
 	customerHandler := handlers.NewCustomerHandler(database)
 	engineerHandler := handlers.NewEngineerHandler(database)
-	ticketHandler := handlers.NewTicketHandler(database)
 	updateHandler := handlers.NewUpdateHandler(database)
 
 	// Initialize WhatsApp components
@@ -141,6 +140,7 @@ func main() {
 		cfg.EmailFromName,
 	)
 	emailHandler := handlers.NewEmailHandler(database, domainMatcher, smtpClient, cfg, messageSender)
+	ticketHandler := handlers.NewTicketHandler(database, smtpClient)
 
 
 	// Initialize and start email poller

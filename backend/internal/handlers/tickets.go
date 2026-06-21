@@ -3,11 +3,12 @@ package handlers
 import (
 	"bytes"
 	"errors"
-	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
 
+	"ai-desk/internal/email"
 	"ai-desk/internal/models"
 	"github.com/gin-gonic/gin"
 	"github.com/xuri/excelize/v2"
@@ -15,11 +16,12 @@ import (
 )
 
 type TicketHandler struct {
-	db *gorm.DB
+	db         *gorm.DB
+	smtpClient *email.SMTPClient
 }
 
-func NewTicketHandler(db *gorm.DB) *TicketHandler {
-	return &TicketHandler{db: db}
+func NewTicketHandler(db *gorm.DB, smtpClient *email.SMTPClient) *TicketHandler {
+	return &TicketHandler{db: db, smtpClient: smtpClient}
 }
 
 // CreateTicket creates a new ticket
@@ -271,6 +273,28 @@ func (h *TicketHandler) UpdateTicket(c *gin.Context) {
 	if err := h.db.Model(&ticket).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update ticket", "details": err.Error()})
 		return
+	}
+
+	// Send closing email if status changed to CLOSED and email address exists
+	if updateReq.Status == "CLOSED" && ticket.Status != "CLOSED" && ticket.EmailFrom != "" {
+		go func(emailFrom, ticketNum string) {
+			subject := fmt.Sprintf("[AI-DESK] Tiket %s Telah Ditutup", ticketNum)
+			htmlBody := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6; font-size: 14px; padding: 10px;">
+	<div>
+		<p>Yth. Pelanggan,</p>
+		<p>Tiket dukungan Anda dengan ID <strong>%s</strong> telah dinyatakan selesai dan ditutup.</p>
+		<p>Terima kasih telah menghubungi layanan kami. Jika Anda masih memerlukan bantuan lebih lanjut, silakan buat tiket baru.</p>
+		<br>
+		<p>Salam,<br>Tim Support</p>
+	</div>
+</body>
+</html>`, ticketNum)
+			if err := h.smtpClient.SendHTMLEmail(emailFrom, "", subject, htmlBody); err != nil {
+				log.Printf("Failed to send ticket closing email to %s: %v", emailFrom, err)
+			}
+		}(ticket.EmailFrom, ticket.TicketNumber)
 	}
 
 	// Reload to get updated data
