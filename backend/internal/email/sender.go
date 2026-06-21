@@ -6,13 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/smtp"
-	"regexp"
 	"strings"
-	"time"
 
 	"ai-desk/internal/ai"
 	"ai-desk/internal/models"
-	"github.com/jordan-wright/email"
 )
 
 type Attachment struct {
