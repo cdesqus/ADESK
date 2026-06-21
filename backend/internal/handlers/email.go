@@ -379,12 +379,12 @@ func (h *EmailHandler) sendEngineerWhatsAppNotification(engineer *models.Enginee
 	}
 
 	customerCompany := "-"
-	if ticket.Customer != nil && ticket.Customer.Company != "" {
-		customerCompany = ticket.Customer.Company
+	if ticket.Customer.ID != 0 && ticket.Customer.Name != "" {
+		customerCompany = ticket.Customer.Name
 	} else if ticket.CustomerID != 0 {
 		var c models.Customer
-		if err := h.db.First(&c, ticket.CustomerID).Error; err == nil {
-			customerCompany = c.Company
+		if err := h.db.First(&c, ticket.CustomerID).Error; err == nil && c.Name != "" {
+			customerCompany = c.Name
 		}
 	}
 
