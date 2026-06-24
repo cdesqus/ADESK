@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"ai-desk/internal/whatsapp"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -85,8 +87,25 @@ func main() {
 	customerHandler := handlers.NewCustomerHandler(database)
 	engineerHandler := handlers.NewEngineerHandler(database)
 
+	// Initialize Redis client for semantic caching
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: cfg.GetRedisAddr(),
+	})
+
+	// Verify Redis connection (non-fatal: cache will be disabled if Redis is down)
+	cacheEnabled := cfg.SemanticCacheEnabled
+	if _, err := redisClient.Ping(context.Background()).Result(); err != nil {
+		log.Printf("WARNING: Redis connection failed (%v). Semantic cache will be DISABLED.", err)
+		cacheEnabled = false
+	} else {
+		log.Printf("Redis connected at %s", cfg.GetRedisAddr())
+	}
+
+	// Initialize semantic cache
+	semanticCache := ai.NewSemanticCache(redisClient, cfg.SemanticCacheTTL, cacheEnabled)
+
 	// Initialize WhatsApp components
-	aiClient := ai.NewOpenAIClient(cfg.OpenAIKey)
+	aiClient := ai.NewOpenAIClient(cfg.OpenAIKey, semanticCache)
 	wahaClient := whatsapp.NewWahaClient(cfg.WahaAPIURL, cfg.WahaAPIKey)
 	messageSender := whatsapp.NewMessageSender(wahaClient, database)
 	actionHandler := whatsapp.NewActionHandler(database, messageSender, wahaClient)

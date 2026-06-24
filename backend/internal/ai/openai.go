@@ -13,6 +13,7 @@ import (
 
 type OpenAIClient struct {
 	apiKey string
+	cache  *SemanticCache
 }
 
 // AIClassification holds the AI's analysis of an email
@@ -30,14 +31,25 @@ type WhatsAppAIResponse struct {
 	NaturalReply string `json:"natural_reply"` // friendly reply to be sent back
 }
 
-func NewOpenAIClient(apiKey string) *OpenAIClient {
+func NewOpenAIClient(apiKey string, cache *SemanticCache) *OpenAIClient {
 	return &OpenAIClient{
 		apiKey: apiKey,
+		cache:  cache,
 	}
 }
 
-// ParseWhatsAppMessage extracts action and generates a conversational response using OpenAI
+// ParseWhatsAppMessage extracts action and generates a conversational response using OpenAI.
+// It checks the semantic cache first to avoid redundant API calls for similar messages.
 func (c *OpenAIClient) ParseWhatsAppMessage(message string) (*WhatsAppAIResponse, error) {
+	// 1. Check semantic cache first
+	if c.cache != nil {
+		if cached, hit := c.cache.Get(message); hit {
+			log.Printf("[AI WA] Cache HIT — action=%s", cached.ActionType)
+			return cached, nil
+		}
+	}
+
+	// 2. Check API key
 	if c.apiKey == "" {
 		return nil, fmt.Errorf("OpenAI API key is missing")
 	}
@@ -72,6 +84,7 @@ RESPOND HANYA dalam format JSON berikut (tanpa markdown code block):
 		return nil, err
 	}
 
+	// 3. Call OpenAI
 	content, err := c.callOpenAI(requestBody)
 	if err != nil {
 		return nil, err
@@ -98,7 +111,24 @@ RESPOND HANYA dalam format JSON berikut (tanpa markdown code block):
 	}
 
 	log.Printf("[AI WA] Action: %s, TicketID: %s", waResp.ActionType, waResp.TicketID)
+
+	// 4. Store in semantic cache
+	if c.cache != nil {
+		c.cache.Set(message, &waResp)
+	}
+
 	return &waResp, nil
+}
+
+// GenerateFallbackResponse creates a sensible default response when both AI and regex parsing fail.
+// This ensures the customer ALWAYS gets a reply, even during OpenAI outages.
+func GenerateFallbackResponse(message string) *WhatsAppAIResponse {
+	return &WhatsAppAIResponse{
+		ActionType:   "create_ticket",
+		TicketID:     "",
+		Content:      message,
+		NaturalReply: "Halo! Pesan kamu sudah kami terima dan tiket sudah dibuatkan. Tim support kami akan segera menghubungi kamu. Terima kasih sudah menghubungi kami! 🙏",
+	}
 }
 
 // ClassifyAndReply classifies the email and generates a contextual reply in one API call

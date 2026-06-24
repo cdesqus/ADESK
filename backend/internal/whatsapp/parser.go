@@ -11,6 +11,22 @@ type ParsedAction struct {
 	Content    string
 }
 
+// Common helpdesk keywords that strongly signal the user is reporting an issue.
+// If any of these appear in a directed message, we treat it as a ticket creation.
+var issueKeywords = []string{
+	// Indonesian
+	"error", "down", "masalah", "gagal", "rusak", "mati", "lambat", "hang",
+	"crash", "bug", "gangguan", "kendala", "trouble", "bermasalah", "tidak bisa",
+	"gak bisa", "ga bisa", "nggak bisa", "ngga bisa", "gabisa", "tdk bisa",
+	"tolong", "bantuin", "bantu", "minta tolong", "urgent", "darurat", "penting",
+	"nge-lag", "lag", "stuck", "freeze", "pending", "timeout", "timed out",
+	"tidak jalan", "gak jalan", "ga jalan", "tidak berfungsi", "tidak bekerja",
+	"500", "404", "502", "503", "connection refused", "connection timeout",
+	// English
+	"broken", "failed", "failure", "issue", "problem", "not working",
+	"can't access", "unable to", "outage", "offline", "unavailable",
+}
+
 // ParseMessage parses the WhatsApp message body to determine the action.
 // isDirectedToBot is true for private messages, or group messages that mention the bot.
 func ParseMessage(body string, isDirectedToBot bool) *ParsedAction {
@@ -85,7 +101,18 @@ func ParseMessage(body string, isDirectedToBot bool) *ParsedAction {
 		}
 	}
 
-	// If directed to bot and no command matched, treat as create ticket with full body
+	// Keyword-based issue detection for directed messages
+	// If the message is directed to the bot and contains common support keywords,
+	// treat it as a ticket creation even without the explicit "tolong buatin tiket" phrase.
+	if isDirectedToBot && containsIssueKeyword(cleanBody) {
+		return &ParsedAction{
+			ActionType: "create_ticket",
+			Content:    cleanBody,
+		}
+	}
+
+	// If directed to bot and no command matched, treat as create ticket with full body.
+	// This is the ultimate fallback: any private message or @mention with text → ticket.
 	if isDirectedToBot && cleanBody != "" {
 		return &ParsedAction{
 			ActionType: "create_ticket",
@@ -96,3 +123,15 @@ func ParseMessage(body string, isDirectedToBot bool) *ParsedAction {
 	// No action recognized
 	return nil
 }
+
+// containsIssueKeyword checks if the message body contains any known issue/support keyword
+func containsIssueKeyword(body string) bool {
+	lower := strings.ToLower(body)
+	for _, kw := range issueKeywords {
+		if strings.Contains(lower, kw) {
+			return true
+		}
+	}
+	return false
+}
+

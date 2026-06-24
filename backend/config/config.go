@@ -62,6 +62,10 @@ type Config struct {
 	// AI Configuration
 	OpenAIKey string
 
+	// Semantic Cache
+	SemanticCacheEnabled bool
+	SemanticCacheTTL     string
+
 	// Frontend
 	FrontendURL string
 }
@@ -155,6 +159,10 @@ func Load() *Config {
 		// Environment
 		Environment: getEnv("ENVIRONMENT", "development"),
 		OpenAIKey:   getEnv("OPENAI_API_KEY", ""),
+
+		// Semantic Cache
+		SemanticCacheEnabled: getEnv("SEMANTIC_CACHE_ENABLED", "true") == "true",
+		SemanticCacheTTL:     getEnv("SEMANTIC_CACHE_TTL", "24h"),
 
 		// Frontend
 		FrontendURL: getEnv("FRONTEND_URL", "https://aidesk.kaumtech.com"),

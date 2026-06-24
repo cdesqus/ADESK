@@ -321,6 +321,17 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 		return
 	}
 
+	// CRITICAL: Skip messages sent by the bot itself to prevent infinite loops.
+	// When the bot sends a reply, Waha fires a 'message' event back with fromMe=true.
+	// Without this check, the bot would process its own replies and create duplicate tickets.
+	var rawMsg map[string]interface{}
+	_ = json.Unmarshal(payload.Data, &rawMsg)
+	if fromMe, ok := rawMsg["fromMe"].(bool); ok && fromMe {
+		log.Printf("[WhatsApp] Skipping own message (fromMe=true) in session=%s", payload.Session)
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		return
+	}
+
 	// Detect if it's a group
 	isGroup := strings.HasSuffix(msgEvent.From, "@g.us")
 	msgEvent.IsGroup = isGroup
@@ -380,6 +391,8 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 			} else {
 				log.Printf("[WhatsApp] OpenAI parsing failed, falling back to regex: %v", err)
 			}
+		} else if isDirectedToBot && h.aiClient == nil {
+			log.Printf("[WhatsApp] AI client is nil (OPENAI_API_KEY not set?), using regex parser only")
 		}
 
 		// Fallback to Regex parser
@@ -421,6 +434,20 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 				// Clear AI reply since this is a hard-override
 				aiReply = ""
 			}
+		}
+
+		// CRITICAL FALLBACK: If the message is directed to the bot but both AI and regex
+		// failed to produce an action, generate a fallback response so the customer
+		// is NEVER left without a reply.
+		if action == nil && isDirectedToBot && strings.TrimSpace(msgEvent.Body) != "" {
+			log.Printf("[WhatsApp] Both AI and regex failed for directed message, using fallback")
+			fallback := ai.GenerateFallbackResponse(msgEvent.Body)
+			action = &whatsapp.ParsedAction{
+				ActionType: fallback.ActionType,
+				TicketID:   fallback.TicketID,
+				Content:    fallback.Content,
+			}
+			aiReply = fallback.NaturalReply
 		}
 
 		if action != nil {
