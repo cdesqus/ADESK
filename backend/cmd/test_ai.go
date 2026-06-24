@@ -22,7 +22,7 @@ func main() {
 
 	fmt.Println("API Key length:", len(apiKey))
 
-	client := ai.NewOpenAIClient(apiKey)
+	client := ai.NewOpenAIClient(apiKey, nil)
 	reply, err := client.GenerateAutoReply("My laptop is not turning on. Please help.", "Budi", "Company XYZ", 123)
 	if err != nil {
 		log.Fatalf("AI Generation Failed: %v", err)

@@ -60,7 +60,7 @@ func (sc *SMTPClient) SendAutoReplyWithClassification(toEmail, toName, subject s
 
 	// Try AI classification + reply
 	if openAIKey != "" {
-		aiClient := ai.NewOpenAIClient(openAIKey)
+		aiClient := ai.NewOpenAIClient(openAIKey, nil)
 		var err error
 		classification, err = aiClient.ClassifyAndReply(emailBody, customerName, sc.fromName, ticketNum)
 		if err == nil && classification != nil && classification.Reply != "" {
