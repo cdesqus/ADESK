@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -85,7 +86,27 @@ func NewWahaClient(baseURL string, apiKey string) *WahaClient {
 
 func (w *WahaClient) CreateSession(name string) error {
 	url := fmt.Sprintf("%s/api/sessions/start", w.baseURL)
-	payload := map[string]string{"name": name}
+	
+	webhookURL := os.Getenv("WAHA_WEBHOOK_URL")
+	if webhookURL == "" {
+		webhookURL = "http://backend:8080/api/whatsapp/webhook"
+	}
+
+	payload := map[string]interface{}{
+		"name": name,
+		"config": map[string]interface{}{
+			"webhooks": []map[string]interface{}{
+				{
+					"url": webhookURL,
+					"events": []string{
+						"message",
+						"message.any",
+						"session.status",
+					},
+				},
+			},
+		},
+	}
 	data, _ := json.Marshal(payload)
 
 	req, err := http.NewRequest("POST", url, bytes.NewReader(data))

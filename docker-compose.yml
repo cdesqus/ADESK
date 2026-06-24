@@ -41,6 +41,7 @@ services:
     container_name: ai-desk-waha
     environment:
       - WAHA_WEBHOOK_URL=http://backend:8080/api/whatsapp/webhook
+      - WAHA_WEBHOOK_EVENTS=message,message.any,session.status
       - WAHA_API_PORT=3000
       - WAHA_LOG_LEVEL=info
       - WAHA_API_KEY=${WAHA_API_KEY:-aidesk-waha-secret-key}
