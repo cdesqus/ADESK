@@ -89,7 +89,7 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 		customerID = customer.ID
 	}
 
-	// Create ticket
+	// Create ticket with retry on duplicate ticket number generation
 	ticket := models.Ticket{
 		CustomerID:        customerID,
 		Title:             fmt.Sprintf("WhatsApp Ticket from %s", senderPhone),
@@ -102,11 +102,29 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 		CreatedAt:         time.Now(),
 	}
 
-	if err := h.db.Create(&ticket).Error; err != nil {
-		log.Printf("Error creating ticket: %v", err)
+	const maxRetries = 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if err := h.db.Create(&ticket).Error; err != nil {
+			if strings.Contains(err.Error(), "tickets_ticket_number_key") || strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+				log.Printf("Duplicate ticket number detected on attempt %d, retrying...", attempt)
+				ticket.TicketNumber = ""
+				ticket.ID = 0
+				continue
+			}
+
+			log.Printf("Error creating ticket: %v", err)
+			h.messageSender.SendMessage(sessionName, replyTo,
+				"Maaf, terjadi kesalahan saat membuat tiket. Silakan coba lagi.")
+			return err
+		}
+		break
+	}
+
+	if ticket.ID == 0 {
+		log.Printf("Failed to create ticket after %d attempts due to duplicate ticket numbers", maxRetries)
 		h.messageSender.SendMessage(sessionName, replyTo,
 			"Maaf, terjadi kesalahan saat membuat tiket. Silakan coba lagi.")
-		return err
+		return fmt.Errorf("failed to create ticket after %d attempts", maxRetries)
 	}
 
 	// Assign to engineer (round-robin)

@@ -110,9 +110,18 @@ type Ticket struct {
 func (t *Ticket) BeforeCreate(tx *gorm.DB) (err error) {
 	if t.TicketNumber == "" {
 		yearMonth := time.Now().Format("2006-01") // e.g. "2026-06"
+
+		// Lock the tickets table in the current transaction to avoid duplicate ticket numbers
+		// when multiple ticket creations happen concurrently.
+		if err := tx.Exec("LOCK TABLE tickets IN EXCLUSIVE MODE").Error; err != nil {
+			return err
+		}
+
 		var lastTicket Ticket
-		tx.Where("ticket_number LIKE ?", yearMonth+"-%").Order("id desc").First(&lastTicket)
-		
+		if err := tx.Where("ticket_number LIKE ?", yearMonth+"-%").Order("ticket_number desc").First(&lastTicket).Error; err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+
 		sequence := 1
 		if lastTicket.TicketNumber != "" {
 			parts := strings.Split(lastTicket.TicketNumber, "-")
