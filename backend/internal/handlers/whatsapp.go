@@ -710,7 +710,7 @@ func (h *WhatsAppHandler) TestMessage(c *gin.Context) {
 	// Send message
 	_, err := h.wahaClient.SendMessage(session.SessionName, chatId, req.Message)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "failed to send message"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": fmt.Sprintf("failed to send message: %v", err)})
 		return
 	}
 
