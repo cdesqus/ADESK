@@ -111,26 +111,21 @@ func (t *Ticket) BeforeCreate(tx *gorm.DB) (err error) {
 	if t.TicketNumber == "" {
 		yearMonth := time.Now().Format("2006-01") // e.g. "2026-06"
 
-		// Lock the tickets table in the current transaction to avoid duplicate ticket numbers
-		// when multiple ticket creations happen concurrently.
-		if err := tx.Exec("LOCK TABLE tickets IN EXCLUSIVE MODE").Error; err != nil {
+		// Use advisory locking for the ticket sequence generator so concurrent
+		// ticket creation does not select the same next value.
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", yearMonth).Error; err != nil {
 			return err
 		}
 
-		var lastTicket Ticket
-		if err := tx.Where("ticket_number LIKE ?", yearMonth+"-%").Order("ticket_number desc").First(&lastTicket).Error; err != nil && err != gorm.ErrRecordNotFound {
+		var maxSeq int
+		if err := tx.Raw(
+			"SELECT COALESCE(MAX(CAST(SPLIT_PART(ticket_number, '-', 3) AS INTEGER)), 0) FROM tickets WHERE ticket_number LIKE ?",
+			yearMonth+"-%",
+		).Scan(&maxSeq).Error; err != nil {
 			return err
 		}
 
-		sequence := 1
-		if lastTicket.TicketNumber != "" {
-			parts := strings.Split(lastTicket.TicketNumber, "-")
-			if len(parts) == 3 {
-				if seq, err := strconv.Atoi(parts[2]); err == nil {
-					sequence = seq + 1
-				}
-			}
-		}
+		sequence := maxSeq + 1
 		t.TicketNumber = fmt.Sprintf("%s-%03d", yearMonth, sequence)
 	}
 	return

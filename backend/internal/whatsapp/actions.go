@@ -103,32 +103,27 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 			return tx.Error
 		}
 
-		if err := tx.Exec("LOCK TABLE tickets IN EXCLUSIVE MODE").Error; err != nil {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", yearMonth).Error; err != nil {
 			tx.Rollback()
-			log.Printf("Failed to lock tickets table: %v", err)
+			log.Printf("Failed to acquire advisory lock for ticket numbering: %v", err)
 			h.messageSender.SendMessage(sessionName, replyTo,
 				"Maaf, terjadi kesalahan saat membuat tiket. Silakan coba lagi.")
 			return err
 		}
 
-		var lastTicket models.Ticket
-		if err := tx.Where("ticket_number LIKE ?", yearMonth+"-%").Order("ticket_number desc").First(&lastTicket).Error; err != nil && err != gorm.ErrRecordNotFound {
+		var maxSeq int
+		if err := tx.Raw(
+			"SELECT COALESCE(MAX(CAST(SPLIT_PART(ticket_number, '-', 3) AS INTEGER)), 0) FROM tickets WHERE ticket_number LIKE ?",
+			yearMonth+"-%",
+		).Scan(&maxSeq).Error; err != nil {
 			tx.Rollback()
-			log.Printf("Failed to query last ticket number: %v", err)
+			log.Printf("Failed to compute next ticket sequence: %v", err)
 			h.messageSender.SendMessage(sessionName, replyTo,
 				"Maaf, terjadi kesalahan saat membuat tiket. Silakan coba lagi.")
 			return err
 		}
 
-		sequence := 1
-		if lastTicket.TicketNumber != "" {
-			parts := strings.Split(lastTicket.TicketNumber, "-")
-			if len(parts) == 3 {
-				if seq, err := strconv.Atoi(parts[2]); err == nil {
-					sequence = seq + 1
-				}
-			}
-		}
+		sequence := maxSeq + 1
 
 		ticket = models.Ticket{
 			CustomerID:        customerID,
@@ -142,6 +137,7 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 			CreatedAt:         time.Now(),
 		}
 		ticket.TicketNumber = fmt.Sprintf("%s-%03d", yearMonth, sequence)
+		log.Printf("[WhatsApp] Creating ticket with number %s (maxSeq=%d) attempt=%d", ticket.TicketNumber, maxSeq, attempt)
 
 		err := tx.Create(&ticket).Error
 		if err != nil {
