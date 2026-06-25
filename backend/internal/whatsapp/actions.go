@@ -254,9 +254,11 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 }
 
 func (h *ActionHandler) HandleTicketUpdate(sessionName, senderPhone, replyTo string, isGroup bool, ticketID, content string) error {
-	// Verify sender is engineer
+	// Verify sender is engineer. Accept multiple formats: raw webhook value,
+	// normalized numeric id (no suffix), or formatted chat id with @c.us.
+	norm := normalizeWhatsAppID(senderPhone)
 	var engineerPhone models.EngineerWAPhone
-	if err := h.db.Where("phone_number = ?", senderPhone).First(&engineerPhone).Error; err != nil {
+	if err := h.db.Where("phone_number = ? OR phone_number = ? OR phone_number = ?", senderPhone, norm, formatPhone(norm)).First(&engineerPhone).Error; err != nil {
 		h.messageSender.SendMessage(sessionName, replyTo,
 			"Anda tidak memiliki akses untuk mengubah tiket ini.")
 		return fmt.Errorf("engineer phone not found")
@@ -298,9 +300,10 @@ func (h *ActionHandler) HandleTicketUpdate(sessionName, senderPhone, replyTo str
 }
 
 func (h *ActionHandler) HandleTicketClose(sessionName, senderPhone, replyTo string, isGroup bool, ticketID, content string) error {
-	// Verify sender is engineer
+	// Verify sender is engineer. Accept multiple formats like in updates.
+	norm := normalizeWhatsAppID(senderPhone)
 	var engineerPhone models.EngineerWAPhone
-	if err := h.db.Where("phone_number = ?", senderPhone).First(&engineerPhone).Error; err != nil {
+	if err := h.db.Where("phone_number = ? OR phone_number = ? OR phone_number = ?", senderPhone, norm, formatPhone(norm)).First(&engineerPhone).Error; err != nil {
 		h.messageSender.SendMessage(sessionName, replyTo,
 			"Anda tidak memiliki akses untuk menutup tiket ini.")
 		return fmt.Errorf("engineer phone not found")
@@ -353,7 +356,7 @@ func (h *ActionHandler) HandleTicketReopen(sessionName, senderPhone, replyTo str
 	}
 
 	// Verify sender is original customer (or allow anyone in the group chat to reopen)
-	if ticket.WhatsappFrom != senderPhone && !isGroup {
+	if normalizeWhatsAppID(ticket.WhatsappFrom) != normalizeWhatsAppID(senderPhone) && !isGroup {
 		h.messageSender.SendMessage(sessionName, replyTo,
 			"Anda tidak memiliki akses untuk membuka kembali tiket ini.")
 		return fmt.Errorf("phone mismatch")
