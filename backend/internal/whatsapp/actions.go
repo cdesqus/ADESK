@@ -3,6 +3,7 @@ package whatsapp
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -22,6 +23,54 @@ func NewActionHandler(db *gorm.DB, messageSender *MessageSender, wahaClient *Wah
 		messageSender: messageSender,
 		wahaClient:    wahaClient,
 	}
+}
+
+func summarizeWhatsAppTicket(content string) (string, string) {
+	clean := strings.TrimSpace(content)
+	if clean == "" {
+		return "WhatsApp issue", ""
+	}
+
+	// Remove any leading mention syntax like @Helpdesk or @12345
+	reMention := regexp.MustCompile(`(?i)^@(?:helpdesk(?:\s+ide)?|[0-9]{5,})\s*`)
+	clean = reMention.ReplaceAllString(clean, "")
+	clean = strings.TrimSpace(clean)
+	if clean == "" {
+		return "WhatsApp issue", ""
+	}
+
+	// If the message is short, use a fixed WhatsApp prefix for clarity
+	words := strings.Fields(clean)
+	if len(words) <= 5 {
+		title := fmt.Sprintf("WhatsApp: %s", clean)
+		if len(title) > 80 {
+			title = strings.TrimSpace(title[:80])
+		}
+		return title, clean
+	}
+
+	// Prefer first sentence for title when available
+	if idx := strings.IndexAny(clean, ".!?\n"); idx > 0 {
+		title := strings.TrimSpace(clean[:idx])
+		if len(title) > 80 {
+			title = strings.TrimSpace(title[:80])
+		}
+		if title == "" {
+			title = strings.Join(words[:8], " ")
+		}
+		return title, clean
+	}
+
+	// Otherwise, use first 8 words as title
+	if len(words) > 8 {
+		title := strings.Join(words[:8], " ")
+		if len(title) > 80 {
+			title = strings.TrimSpace(title[:80])
+		}
+		return title, clean
+	}
+
+	return clean, clean
 }
 
 func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo string, isGroup bool, content string, aiReply string) error {
@@ -124,10 +173,11 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 
 		sequence := maxSeq + 1
 
+		title, description := summarizeWhatsAppTicket(content)
 		ticket = models.Ticket{
 			CustomerID:        customerID,
-			Title:             fmt.Sprintf("WhatsApp Ticket from %s", senderPhone),
-			Description:       content,
+			Title:             title,
+			Description:       description,
 			Status:            "OPEN",
 			Priority:          "MEDIUM",
 			Source:            "WHATSAPP",

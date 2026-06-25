@@ -422,6 +422,17 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 		}
 	}
 
+	if msgEvent.ID != "" {
+		var existing models.WhatsAppLog
+		if err := h.db.Where("session_name = ? AND message_id = ? AND direction = ?", payload.Session, msgEvent.ID, "inbound").First(&existing).Error; err == nil {
+			log.Printf("[WhatsApp] duplicate inbound message skipped session=%s messageID=%s body=%q", payload.Session, msgEvent.ID, msgEvent.Body)
+			c.JSON(http.StatusOK, gin.H{"status": "ok"})
+			return
+		} else if err != nil && err != gorm.ErrRecordNotFound {
+			log.Printf("[WhatsApp] failed to query existing inbound message: %v", err)
+		}
+	}
+
 	// Log the incoming message
 	h.logIncomingMessage(payload.Session, msgEvent)
 
