@@ -66,9 +66,10 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
           setStep('connected');
           // Update session with latest data
           const updatedSession: WhatsAppSession = {
-            ...result,
+            ...(session!),
             id: sessionId,
             status: 'WORKING',
+            phoneNumber: result.phone_number || session?.phoneNumber || '',
           };
           setSession(updatedSession);
           // Auto-close after short delay to show success state
@@ -196,7 +197,7 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
       const result = await apiService.verifySession(session.id);
       const updatedSession: WhatsAppSession = {
         ...session,
-        status: result.status || session.status,
+        status: (result.status as WhatsAppSession['status']) || session.status,
         phoneNumber: result.phone_number || session.phoneNumber,
       };
 

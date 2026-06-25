@@ -120,7 +120,7 @@ export const WhatsAppSettingsPage: React.FC = () => {
       const result = await apiService.verifySession(sessionId);
       setSessions(sessions.map((s) => 
         s.id === sessionId 
-          ? { ...s, status: result.status || s.status, phoneNumber: result.phone_number || s.phoneNumber } 
+          ? { ...s, status: (result.status as WhatsAppSession['status']) || s.status, phoneNumber: result.phone_number || s.phoneNumber } 
           : s
       ));
       setSuccessMessage(`Session status refreshed: ${result.status || 'checked'}`);
