@@ -139,7 +139,8 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 	}
 
 	const maxRetries = 5
-	yearMonth := time.Now().Format("2006-01")
+	yearMonthLong := time.Now().Format("2006-01")
+	yearMonth := time.Now().Format("0601") // e.g. "2606" (YYMM)
 
 	var ticket models.Ticket
 	for attempt := 1; attempt <= maxRetries; attempt++ {
@@ -160,9 +161,12 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 		}
 
 		var maxSeq int
+		// Support both new format (IDE-YYMM-SS) and legacy (YYYY-MM-SSS)
+		prefixNew := "IDE-" + yearMonth + "-%"
+		prefixLegacy := yearMonthLong + "-%"
 		if err := tx.Raw(
-			"SELECT COALESCE(MAX(CAST(SPLIT_PART(ticket_number, '-', 3) AS INTEGER)), 0) FROM tickets WHERE ticket_number LIKE ?",
-			yearMonth+"-%",
+			"SELECT COALESCE(MAX(CAST(SPLIT_PART(ticket_number, '-', 3) AS INTEGER)), 0) FROM tickets WHERE ticket_number LIKE ? OR ticket_number LIKE ?",
+			prefixNew, prefixLegacy,
 		).Scan(&maxSeq).Error; err != nil {
 			tx.Rollback()
 			log.Printf("Failed to compute next ticket sequence: %v", err)
@@ -185,7 +189,7 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 			WhatsappSessionID: sessionName,
 			CreatedAt:         time.Now(),
 		}
-		ticket.TicketNumber = fmt.Sprintf("%s-%03d", yearMonth, sequence)
+		ticket.TicketNumber = fmt.Sprintf("IDE-%s-%02d", yearMonth, sequence)
 		log.Printf("[WhatsApp] Creating ticket with number %s (maxSeq=%d) attempt=%d", ticket.TicketNumber, maxSeq, attempt)
 
 		err := tx.Create(&ticket).Error
@@ -439,4 +443,21 @@ func formatPhone(phone string) string {
 		}
 	}
 	return cleanNumber + "@c.us"
+}
+
+// normalizeWhatsAppID normalizes various incoming WhatsApp identifiers to a
+// canonical numeric form (without @c.us or resource suffixes) so we can match
+// against stored phone numbers regardless of format.
+func normalizeWhatsAppID(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ""
+	}
+	if strings.Contains(id, "@") {
+		id = strings.Split(id, "@")[0]
+	}
+	if strings.Contains(id, ":") {
+		id = strings.Split(id, ":")[0]
+	}
+	return id
 }

@@ -107,7 +107,8 @@ type Ticket struct {
 // BeforeCreate generates the auto-increment ticket number
 func (t *Ticket) BeforeCreate(tx *gorm.DB) (err error) {
 	if t.TicketNumber == "" {
-		yearMonth := time.Now().Format("2006-01") // e.g. "2026-06"
+		yearMonthLong := time.Now().Format("2006-01") // e.g. "2026-06"
+		yearMonth := time.Now().Format("0601")        // e.g. "2606" (YYMM)
 
 		// Use advisory locking for the ticket sequence generator so concurrent
 		// ticket creation does not select the same next value.
@@ -116,15 +117,17 @@ func (t *Ticket) BeforeCreate(tx *gorm.DB) (err error) {
 		}
 
 		var maxSeq int
+		prefixNew := "IDE-" + yearMonth + "-%"
+		prefixLegacy := yearMonthLong + "-%"
 		if err := tx.Raw(
-			"SELECT COALESCE(MAX(CAST(SPLIT_PART(ticket_number, '-', 3) AS INTEGER)), 0) FROM tickets WHERE ticket_number LIKE ?",
-			yearMonth+"-%",
+			"SELECT COALESCE(MAX(CAST(SPLIT_PART(ticket_number, '-', 3) AS INTEGER)), 0) FROM tickets WHERE ticket_number LIKE ? OR ticket_number LIKE ?",
+			prefixNew, prefixLegacy,
 		).Scan(&maxSeq).Error; err != nil {
 			return err
 		}
 
 		sequence := maxSeq + 1
-		t.TicketNumber = fmt.Sprintf("%s-%03d", yearMonth, sequence)
+		t.TicketNumber = fmt.Sprintf("IDE-%s-%02d", yearMonth, sequence)
 	}
 	return
 }
