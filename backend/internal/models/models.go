@@ -193,8 +193,8 @@ type EngineerWAPhone struct {
 // WhatsAppLog represents WhatsApp message activity log
 type WhatsAppLog struct {
 	ID             string    `gorm:"primaryKey" json:"id"`
-	SessionName    string    `gorm:"index;not null" json:"session_name"`
-	MessageID      string    `gorm:"index;not null" json:"message_id"`
+	SessionName    string    `gorm:"index;not null;index:idx_whatsapp_message,unique" json:"session_name"`
+	MessageID      string    `gorm:"index;not null;index:idx_whatsapp_message,unique" json:"message_id"`
 	FromPhone      string    `gorm:"index;not null" json:"from_phone"`
 	ToPhone        string    `gorm:"index" json:"to_phone"`
 	Body           string    `gorm:"type:text" json:"body"`

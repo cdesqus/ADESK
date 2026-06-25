@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS whatsapp_logs (
 
 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_session ON whatsapp_logs(session_name);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_message_id ON whatsapp_logs(message_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_logs_session_message ON whatsapp_logs(session_name, message_id);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_from_phone ON whatsapp_logs(from_phone);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_direction ON whatsapp_logs(direction);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_status ON whatsapp_logs(status);

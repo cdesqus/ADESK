@@ -424,18 +424,18 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 	}
 
 	if msgEvent.ID != "" {
-		var existing models.WhatsAppLog
-		if err := h.db.Where("session_name = ? AND message_id = ? AND direction = ?", payload.Session, msgEvent.ID, "inbound").First(&existing).Error; err == nil {
+		inserted, err := h.insertInboundMessageIfNew(payload.Session, msgEvent)
+		if err != nil {
+			log.Printf("[WhatsApp] failed to insert inbound message log: %v", err)
+		} else if !inserted {
 			log.Printf("[WhatsApp] duplicate inbound message skipped session=%s messageID=%s body=%q", payload.Session, msgEvent.ID, msgEvent.Body)
 			c.JSON(http.StatusOK, gin.H{"status": "ok"})
 			return
-		} else if err != nil && err != gorm.ErrRecordNotFound {
-			log.Printf("[WhatsApp] failed to query existing inbound message: %v", err)
 		}
+	} else {
+		// If there is no message ID, fall back to logging normally.
+		h.logIncomingMessage(payload.Session, msgEvent)
 	}
-
-	// Log the incoming message
-	h.logIncomingMessage(payload.Session, msgEvent)
 
 	log.Printf("[WhatsApp] message metadata session=%s from=%s type=%s isGroup=%t directedToBot=%t body=%q", payload.Session, msgEvent.From, msgEvent.Type, isGroup, isDirectedToBot, msgEvent.Body)
 
@@ -530,6 +530,35 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func (h *WhatsAppHandler) insertInboundMessageIfNew(sessionName string, msg whatsapp.MessageEvent) (bool, error) {
+	logEntry := models.WhatsAppLog{
+		ID:          uuid.New().String(),
+		SessionName: sessionName,
+		MessageID:   msg.ID,
+		FromPhone:   msg.From,
+		ToPhone:     msg.To,
+		Body:        msg.Body,
+		MessageType: msg.Type,
+		Direction:   "inbound",
+		Status:      "received",
+		CreatedAt:   time.Now(),
+	}
+
+	err := h.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&logEntry).Error
+	if err != nil {
+		return false, err
+	}
+
+	// If the row was not inserted, the returned ID will still be populated in Go, so we need
+	// to detect duplicates based on the inserted_at timestamp behavior.
+	var existing models.WhatsAppLog
+	if err := h.db.Where("session_name = ? AND message_id = ? AND direction = ?", sessionName, msg.ID, "inbound").First(&existing).Error; err != nil {
+		return false, err
+	}
+
+	return existing.ID == logEntry.ID, nil
 }
 
 func (h *WhatsAppHandler) logIncomingMessage(sessionName string, msg whatsapp.MessageEvent) {
