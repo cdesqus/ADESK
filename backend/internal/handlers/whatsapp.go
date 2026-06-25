@@ -384,24 +384,24 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 
 	// Determine if the message is directed to the bot
 	isDirectedToBot := !isGroup // Private messages are always directed to the bot
-	
+
 	// For group messages, check if the bot is mentioned
 	if isGroup {
 		var session models.WhatsAppSession
 		if err := h.db.First(&session, "session_name = ?", payload.Session).Error; err == nil {
-			// Get bot's number without the @c.us suffix
-			botNum := session.PhoneNumber
-			if strings.Contains(botNum, "@") {
-				botNum = strings.Split(botNum, "@")[0]
+			botNum := normalizeWhatsAppID(session.PhoneNumber)
+			if botNum == "" {
+				if wahaSession, err := h.wahaClient.CheckSessionStatus(payload.Session); err == nil {
+					botNum = normalizeWhatsAppID(wahaSession.PhoneNumber)
+				}
 			}
-			
-			// Check if message mentions the bot's phone number
-			if botNum != "" && strings.Contains(msgEvent.Body, "@"+botNum) {
+
+			if botNum != "" && containsMention(msgEvent.Body, botNum) {
 				isDirectedToBot = true
 			}
 		}
 
-		// Fallback for visual mentions where WAHA might pass the contact name instead of number
+		// Fallback for textual mentions like @helpdesk
 		if !isDirectedToBot {
 			reBotMention := regexp.MustCompile(`(?i)@helpdesk`)
 			if reBotMention.MatchString(msgEvent.Body) {
@@ -517,6 +517,41 @@ func (h *WhatsAppHandler) logIncomingMessage(sessionName string, msg whatsapp.Me
 	if err := h.db.Create(&logEntry).Error; err != nil {
 		log.Printf("Failed to log incoming message: %v", err)
 	}
+}
+
+func normalizeWhatsAppID(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ""
+	}
+	if strings.Contains(id, "@") {
+		id = strings.Split(id, "@")[0]
+	}
+	if strings.Contains(id, ":") {
+		id = strings.Split(id, ":")[0]
+	}
+	return id
+}
+
+func containsMention(body, id string) bool {
+	if body == "" || id == "" {
+		return false
+	}
+
+	bodyLower := strings.ToLower(body)
+	idLower := strings.ToLower(id)
+	if strings.Contains(bodyLower, "@"+idLower) {
+		return true
+	}
+
+	reMention := regexp.MustCompile(`@([0-9]{5,})`)
+	for _, match := range reMention.FindAllStringSubmatch(bodyLower, -1) {
+		if len(match) > 1 && match[1] == idLower {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (h *WhatsAppHandler) handleAction(sessionName, senderPhone, replyTo string, isGroup bool, action *whatsapp.ParsedAction, aiReply string) {
