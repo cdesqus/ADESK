@@ -3,6 +3,7 @@ package whatsapp
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -89,26 +90,64 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 		customerID = customer.ID
 	}
 
-	// Create ticket with retry on duplicate ticket number generation
-	ticket := models.Ticket{
-		CustomerID:        customerID,
-		Title:             fmt.Sprintf("WhatsApp Ticket from %s", senderPhone),
-		Description:       content,
-		Status:            "OPEN",
-		Priority:          "MEDIUM",
-		Source:            "WHATSAPP",
-		WhatsappFrom:      senderPhone,
-		WhatsappSessionID: sessionName,
-		CreatedAt:         time.Now(),
-	}
+	const maxRetries = 5
+	yearMonth := time.Now().Format("2006-01")
 
-	const maxRetries = 3
+	var ticket models.Ticket
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		if err := h.db.Create(&ticket).Error; err != nil {
+		tx := h.db.Begin()
+		if tx.Error != nil {
+			log.Printf("Failed to start transaction for ticket creation: %v", tx.Error)
+			h.messageSender.SendMessage(sessionName, replyTo,
+				"Maaf, terjadi kesalahan saat membuat tiket. Silakan coba lagi.")
+			return tx.Error
+		}
+
+		if err := tx.Exec("LOCK TABLE tickets IN EXCLUSIVE MODE").Error; err != nil {
+			tx.Rollback()
+			log.Printf("Failed to lock tickets table: %v", err)
+			h.messageSender.SendMessage(sessionName, replyTo,
+				"Maaf, terjadi kesalahan saat membuat tiket. Silakan coba lagi.")
+			return err
+		}
+
+		var lastTicket models.Ticket
+		if err := tx.Where("ticket_number LIKE ?", yearMonth+"-%").Order("ticket_number desc").First(&lastTicket).Error; err != nil && err != gorm.ErrRecordNotFound {
+			tx.Rollback()
+			log.Printf("Failed to query last ticket number: %v", err)
+			h.messageSender.SendMessage(sessionName, replyTo,
+				"Maaf, terjadi kesalahan saat membuat tiket. Silakan coba lagi.")
+			return err
+		}
+
+		sequence := 1
+		if lastTicket.TicketNumber != "" {
+			parts := strings.Split(lastTicket.TicketNumber, "-")
+			if len(parts) == 3 {
+				if seq, err := strconv.Atoi(parts[2]); err == nil {
+					sequence = seq + 1
+				}
+			}
+		}
+
+		ticket = models.Ticket{
+			CustomerID:        customerID,
+			Title:             fmt.Sprintf("WhatsApp Ticket from %s", senderPhone),
+			Description:       content,
+			Status:            "OPEN",
+			Priority:          "MEDIUM",
+			Source:            "WHATSAPP",
+			WhatsappFrom:      senderPhone,
+			WhatsappSessionID: sessionName,
+			CreatedAt:         time.Now(),
+		}
+		ticket.TicketNumber = fmt.Sprintf("%s-%03d", yearMonth, sequence)
+
+		err := tx.Create(&ticket).Error
+		if err != nil {
+			tx.Rollback()
 			if strings.Contains(err.Error(), "tickets_ticket_number_key") || strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-				log.Printf("Duplicate ticket number detected on attempt %d, retrying...", attempt)
-				ticket.TicketNumber = ""
-				ticket.ID = 0
+				log.Printf("Duplicate ticket number detected on attempt %d (value=%s), retrying...", attempt, ticket.TicketNumber)
 				continue
 			}
 
@@ -117,6 +156,19 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 				"Maaf, terjadi kesalahan saat membuat tiket. Silakan coba lagi.")
 			return err
 		}
+
+		if err := tx.Commit().Error; err != nil {
+			tx.Rollback()
+			if strings.Contains(err.Error(), "tickets_ticket_number_key") || strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+				log.Printf("Duplicate ticket number detected during commit on attempt %d (value=%s), retrying...", attempt, ticket.TicketNumber)
+				continue
+			}
+			log.Printf("Failed to commit ticket transaction: %v", err)
+			h.messageSender.SendMessage(sessionName, replyTo,
+				"Maaf, terjadi kesalahan saat membuat tiket. Silakan coba lagi.")
+			return err
+		}
+
 		break
 	}
 
