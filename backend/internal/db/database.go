@@ -33,6 +33,24 @@ func InitDB(dsn string) (*gorm.DB, error) {
 }
 
 // Migrate runs all migrations
+func removeDuplicateWhatsAppLogs(db *gorm.DB) error {
+	if !db.Migrator().HasTable(&models.WhatsAppLog{}) {
+		return nil
+	}
+
+	return db.Exec(`
+		DELETE FROM whatsapp_logs
+		WHERE id IN (
+			SELECT id FROM (
+				SELECT id,
+					ROW_NUMBER() OVER (PARTITION BY session_name, message_id ORDER BY created_at, id) AS rn
+				FROM whatsapp_logs
+			) duplicates
+			WHERE duplicates.rn > 1
+		);
+	`).Error
+}
+
 func Migrate(db *gorm.DB) error {
 	err := db.AutoMigrate(
 		&models.User{},
@@ -53,6 +71,10 @@ func Migrate(db *gorm.DB) error {
 		// Let's try to fix existing rows if the column exists.
 		if db.Migrator().HasColumn(&models.Ticket{}, "TicketNumber") {
 			db.Exec("UPDATE tickets SET ticket_number = 'TK-MIG-' || id WHERE ticket_number IS NULL OR ticket_number = ''")
+		}
+
+		if derr := removeDuplicateWhatsAppLogs(db); derr != nil {
+			log.Printf("Failed to remove duplicate WhatsApp logs: %v", derr)
 		}
 		
 		// Retry migration
