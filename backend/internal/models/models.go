@@ -99,9 +99,9 @@ type Ticket struct {
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Relations
-	Customer Customer `gorm:"foreignKey:CustomerID" json:"customer,omitempty"`
-	Engineer *User    `gorm:"foreignKey:EngineerID" json:"engineer,omitempty"`
-	Updates  []Update `gorm:"foreignKey:TicketID" json:"updates,omitempty"`
+	Customer Customer  `gorm:"foreignKey:CustomerID" json:"customer,omitempty"`
+	Engineer *Engineer `gorm:"foreignKey:EngineerID" json:"engineer,omitempty"`
+	Updates  []Update  `gorm:"foreignKey:TicketID" json:"updates,omitempty"`
 }
 
 // BeforeCreate generates the auto-increment ticket number
