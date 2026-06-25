@@ -688,19 +688,24 @@ func (h *WhatsAppHandler) TestMessage(c *gin.Context) {
 		return
 	}
 
-	// Format phone number
-	var number strings.Builder
-	for _, r := range req.PhoneNumber {
-		if r >= '0' && r <= '9' {
-			number.WriteRune(r)
+	// Format phone number / chat ID
+	chatId := req.PhoneNumber
+
+	// If it doesn't end with @g.us (not a group ID), format it as a standard phone number
+	if !strings.HasSuffix(chatId, "@g.us") {
+		var number strings.Builder
+		for _, r := range req.PhoneNumber {
+			if r >= '0' && r <= '9' {
+				number.WriteRune(r)
+			}
 		}
+		
+		if number.Len() == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid phone number"})
+			return
+		}
+		chatId = number.String() + "@c.us"
 	}
-	
-	if number.Len() == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid phone number"})
-		return
-	}
-	chatId := number.String() + "@c.us"
 
 	// Send message
 	_, err := h.wahaClient.SendMessage(session.SessionName, chatId, req.Message)

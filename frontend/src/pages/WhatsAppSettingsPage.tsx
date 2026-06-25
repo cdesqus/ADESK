@@ -482,6 +482,87 @@ export const WhatsAppSettingsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Test Custom Message Section */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mt-6">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <h2 className="text-lg font-semibold text-gray-900">Test Custom Message (Groups / Numbers)</h2>
+        </div>
+        <div className="p-6">
+          <form 
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const targetId = formData.get('targetId') as string;
+              const message = formData.get('message') as string;
+              
+              if (!targetId || !message) return;
+              if (!sessions.length || sessions[0].status !== 'WORKING') {
+                setErrorMessage('No active WhatsApp session found');
+                return;
+              }
+
+              setIsTestingMessage('custom');
+              try {
+                const result = await apiService.testWAMessage(
+                  sessions[0].id,
+                  targetId,
+                  message
+                );
+                if (result.success) {
+                  setSuccessMessage(`Test message sent to ${targetId}`);
+                  (e.target as HTMLFormElement).reset();
+                } else {
+                  setErrorMessage(result.message);
+                }
+              } catch (err) {
+                setErrorMessage(err instanceof Error ? err.message : 'Failed to send test message');
+              } finally {
+                setIsTestingMessage(null);
+                setTimeout(() => setSuccessMessage(''), 3000);
+              }
+            }}
+            className="space-y-4 max-w-2xl"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Target ID / Phone</label>
+                <Input 
+                  name="targetId" 
+                  placeholder="e.g. 120363410254520944@g.us or 628123456" 
+                  required 
+                />
+                <p className="text-xs text-gray-500 mt-1">For groups, include the @g.us suffix</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                <Input 
+                  name="message" 
+                  placeholder="Type your test message here..." 
+                  required 
+                  defaultValue="Test message from AI-DESK to verify group connection"
+                />
+              </div>
+            </div>
+            <Button 
+              type="submit" 
+              disabled={isTestingMessage === 'custom'}
+            >
+              {isTestingMessage === 'custom' ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Phone className="w-4 h-4 mr-2" />
+                  Send Test Message
+                </>
+              )}
+            </Button>
+          </form>
+        </div>
+      </div>
+
       {/* Webhook Status Section */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
