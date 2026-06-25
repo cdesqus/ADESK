@@ -3,7 +3,6 @@ package whatsapp
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
