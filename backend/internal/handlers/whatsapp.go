@@ -414,7 +414,7 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 	h.logIncomingMessage(payload.Session, msgEvent)
 
 	// Parse message for actions
-	if msgEvent.Type == "text" {
+	if msgEvent.Type == "text" || msgEvent.Type == "chat" || msgEvent.Type == "" {
 		var action *whatsapp.ParsedAction
 		var aiReply string
 
