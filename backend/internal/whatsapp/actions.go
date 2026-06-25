@@ -25,6 +25,7 @@ func NewActionHandler(db *gorm.DB, messageSender *MessageSender, wahaClient *Wah
 }
 
 func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo string, isGroup bool, content string, aiReply string) error {
+	log.Printf("[WhatsApp] HandleCreateTicket session=%s sender=%s replyTo=%s isGroup=%t content=%q", sessionName, senderPhone, replyTo, isGroup, content)
 	var customer *models.Customer
 	var customerID uint
 	foundCustomer := false

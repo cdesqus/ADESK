@@ -390,46 +390,63 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 		var session models.WhatsAppSession
 		if err := h.db.First(&session, "session_name = ?", payload.Session).Error; err == nil {
 			botNum := normalizeWhatsAppID(session.PhoneNumber)
-			if botNum == "" {
-				if wahaSession, err := h.wahaClient.CheckSessionStatus(payload.Session); err == nil {
+			botLid := ""
+			if wahaSession, err := h.wahaClient.CheckSessionStatus(payload.Session); err == nil {
+				if botNum == "" {
 					botNum = normalizeWhatsAppID(wahaSession.PhoneNumber)
 				}
+				botLid = normalizeWhatsAppID(wahaSession.Me.ID)
 			}
+
+			log.Printf("[WhatsApp] bot mention candidates session=%s botNum=%s botLid=%s", payload.Session, botNum, botLid)
 
 			if botNum != "" && containsMention(msgEvent.Body, botNum) {
 				isDirectedToBot = true
 			}
+			if !isDirectedToBot && botLid != "" && containsMention(msgEvent.Body, botLid) {
+				isDirectedToBot = true
+			}
 		}
 
-		// Fallback for textual mentions like @helpdesk
+		// Fallback for textual mentions like @helpdesk or any leading numeric mention in the group
 		if !isDirectedToBot {
 			reBotMention := regexp.MustCompile(`(?i)@helpdesk`)
 			if reBotMention.MatchString(msgEvent.Body) {
 				isDirectedToBot = true
 			}
 		}
+
+		if !isDirectedToBot && looksLikeBotMention(msgEvent.Body) {
+			log.Printf("[WhatsApp] numeric group mention detected, directing to bot: %s", msgEvent.Body)
+			isDirectedToBot = true
+		}
 	}
 
 	// Log the incoming message
 	h.logIncomingMessage(payload.Session, msgEvent)
 
-	// Parse message for actions
-	if msgEvent.Type == "text" || msgEvent.Type == "chat" || msgEvent.Type == "" {
+	log.Printf("[WhatsApp] message metadata session=%s from=%s type=%s isGroup=%t directedToBot=%t body=%q", payload.Session, msgEvent.From, msgEvent.Type, isGroup, isDirectedToBot, msgEvent.Body)
+
+	// Parse message for actions when the payload contains a body
+	if strings.TrimSpace(msgEvent.Body) != "" {
 		var action *whatsapp.ParsedAction
 		var aiReply string
+
+		log.Printf("[WhatsApp] parsing action from body session=%s from=%s isDirectedToBot=%t", payload.Session, senderPhone, isDirectedToBot)
 
 		// First try OpenAI if it's directed to bot
 		if isDirectedToBot && h.aiClient != nil {
 			waResp, err := h.aiClient.ParseWhatsAppMessage(msgEvent.Body)
-			if err == nil && waResp != nil {
+			if err == nil && waResp != nil && isValidWhatsAppAction(waResp.ActionType) {
 				action = &whatsapp.ParsedAction{
 					ActionType: waResp.ActionType,
 					TicketID:   waResp.TicketID,
 					Content:    waResp.Content,
 				}
 				aiReply = waResp.NaturalReply
+				log.Printf("[WhatsApp] OpenAI parsed action=%s ticketID=%s", waResp.ActionType, waResp.TicketID)
 			} else {
-				log.Printf("[WhatsApp] OpenAI parsing failed, falling back to regex: %v", err)
+				log.Printf("[WhatsApp] OpenAI parsing invalid or failed action=%q err=%v, falling back to regex", waResp.ActionType, err)
 			}
 		} else if isDirectedToBot && h.aiClient == nil {
 			log.Printf("[WhatsApp] AI client is nil (OPENAI_API_KEY not set?), using regex parser only")
@@ -480,7 +497,7 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 		// failed to produce an action, generate a fallback response so the customer
 		// is NEVER left without a reply.
 		if action == nil && isDirectedToBot && strings.TrimSpace(msgEvent.Body) != "" {
-			log.Printf("[WhatsApp] Both AI and regex failed for directed message, using fallback")
+			log.Printf("[WhatsApp] both AI and regex failed for directed message, using fallback")
 			fallback := ai.GenerateFallbackResponse(msgEvent.Body)
 			action = &whatsapp.ParsedAction{
 				ActionType: fallback.ActionType,
@@ -491,9 +508,12 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 		}
 
 		if action != nil {
+			log.Printf("[WhatsApp] action resolved session=%s action=%s ticketID=%s content=%q", payload.Session, action.ActionType, action.TicketID, action.Content)
 			// Reply to the chat where the message originated (group or private)
 			replyTo := msgEvent.From
 			go h.handleAction(payload.Session, senderPhone, replyTo, isGroup, action, aiReply)
+		} else {
+			log.Printf("[WhatsApp] no action produced for directed message session=%s from=%s body=%q", payload.Session, senderPhone, msgEvent.Body)
 		}
 	}
 
@@ -552,6 +572,21 @@ func containsMention(body, id string) bool {
 	}
 
 	return false
+}
+
+func looksLikeBotMention(body string) bool {
+	reMention := regexp.MustCompile(`@([0-9]{5,})`)
+	matches := reMention.FindAllStringSubmatch(body, -1)
+	return len(matches) > 0
+}
+
+func isValidWhatsAppAction(actionType string) bool {
+	switch actionType {
+	case "create_ticket", "update", "close", "reopen", "status_check":
+		return true
+	default:
+		return false
+	}
 }
 
 func (h *WhatsAppHandler) handleAction(sessionName, senderPhone, replyTo string, isGroup bool, action *whatsapp.ParsedAction, aiReply string) {
