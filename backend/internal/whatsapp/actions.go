@@ -409,13 +409,19 @@ func (h *ActionHandler) HandleStatusCheck(sessionName, senderPhone, replyTo stri
 func (h *ActionHandler) assignEngineer(customerID uint) *models.Engineer {
 	var engineer models.Engineer
 
-	// Get engineers for this customer ordered by ID to do round-robin
+	// First try to assign an active engineer for this customer
 	if err := h.db.Where("customer_id = ? AND is_active = ?", customerID, true).
-		Order("id").First(&engineer).Error; err != nil {
-		return nil
+		Order("id").First(&engineer).Error; err == nil {
+		return &engineer
 	}
 
-	return &engineer
+	// Fallback to any active engineer if no customer-specific engineer exists
+	if err := h.db.Where("is_active = ?", true).
+		Order("id").First(&engineer).Error; err == nil {
+		return &engineer
+	}
+
+	return nil
 }
 
 // formatPhone formats a phone number for WhatsApp chatId

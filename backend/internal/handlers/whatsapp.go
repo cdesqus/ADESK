@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type WhatsAppHandler struct {
@@ -545,7 +546,7 @@ func (h *WhatsAppHandler) logIncomingMessage(sessionName string, msg whatsapp.Me
 		CreatedAt:   time.Now(),
 	}
 
-	if err := h.db.Create(&logEntry).Error; err != nil {
+	if err := h.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&logEntry).Error; err != nil {
 		log.Printf("Failed to log incoming message: %v", err)
 	}
 }
