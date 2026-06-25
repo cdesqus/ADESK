@@ -283,6 +283,16 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 
 	log.Printf("Received WhatsApp webhook: event=%s session=%s", payload.Event, payload.Session)
 
+	// Determine the actual payload data (WAHA uses either 'data' or 'payload' depending on version)
+	var rawPayloadData []byte
+	if len(payload.Payload) > 0 {
+		rawPayloadData = payload.Payload
+	} else if len(payload.Data) > 0 {
+		rawPayloadData = payload.Data
+	} else {
+		rawPayloadData = []byte("{}")
+	}
+
 	// Handle session.status events
 	if payload.Event == "session.status" {
 		// WAHA may send status in different formats depending on version:
@@ -292,7 +302,7 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 		var rawData map[string]interface{}
 		var newStatus string
 
-		if err := json.Unmarshal(payload.Data, &rawData); err == nil {
+		if err := json.Unmarshal(rawPayloadData, &rawData); err == nil {
 			// Try direct "status" field first
 			if s, ok := rawData["status"].(string); ok && s != "" {
 				newStatus = s
@@ -309,7 +319,7 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 
 		if newStatus != "" {
 			log.Printf("[WhatsApp Webhook] Session status event for '%s': new_status=%s raw_data=%s",
-				payload.Session, newStatus, string(payload.Data))
+				payload.Session, newStatus, string(rawPayloadData))
 
 			var session models.WhatsAppSession
 			if err := h.db.Where("session_name = ? AND deleted_at IS NULL", payload.Session).First(&session).Error; err == nil {
@@ -331,7 +341,7 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 				log.Printf("[WhatsApp Webhook] Session '%s' not found in DB for status update", payload.Session)
 			}
 		} else {
-			log.Printf("[WhatsApp Webhook] Could not parse status from session.status event: %s", string(payload.Data))
+			log.Printf("[WhatsApp Webhook] Could not parse status from session.status event: %s", string(rawPayloadData))
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		return
@@ -345,7 +355,7 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 
 	// Parse message event
 	var msgEvent whatsapp.MessageEvent
-	if err := json.Unmarshal(payload.Data, &msgEvent); err != nil {
+	if err := json.Unmarshal(rawPayloadData, &msgEvent); err != nil {
 		log.Printf("Failed to parse message event: %v", err)
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		return
@@ -355,7 +365,7 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 	// When the bot sends a reply, Waha fires a 'message' event back with fromMe=true.
 	// Without this check, the bot would process its own replies and create duplicate tickets.
 	var rawMsg map[string]interface{}
-	_ = json.Unmarshal(payload.Data, &rawMsg)
+	_ = json.Unmarshal(rawPayloadData, &rawMsg)
 	if fromMe, ok := rawMsg["fromMe"].(bool); ok && fromMe {
 		log.Printf("[WhatsApp] Skipping own message (fromMe=true) in session=%s", payload.Session)
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -432,7 +442,7 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 
 		// Check for quoted message (swipe reply)
 		var rawData map[string]interface{}
-		_ = json.Unmarshal(payload.Data, &rawData)
+		_ = json.Unmarshal(rawPayloadData, &rawData)
 		
 		quotedBody := ""
 		if hasQuoted, ok := rawData["hasQuotedMsg"].(bool); ok && hasQuoted {

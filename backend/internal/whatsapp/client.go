@@ -59,6 +59,7 @@ type WebhookPayload struct {
 	Event   string          `json:"event"`
 	Session string          `json:"session"`
 	Data    json.RawMessage `json:"data"`
+	Payload json.RawMessage `json:"payload"`
 }
 
 type MessageEvent struct {
