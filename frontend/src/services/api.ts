@@ -375,8 +375,8 @@ class ApiService {
     await this.api.delete(`/whatsapp/sessions/${sessionId}`);
   }
 
-  async verifySession(sessionId: string): Promise<WhatsAppSession> {
-    const response = await this.api.post<WhatsAppSession>(
+  async verifySession(sessionId: string): Promise<{ status: string; phone_number: string; connected: boolean }> {
+    const response = await this.api.post<{ status: string; phone_number: string; connected: boolean }>(
       `/whatsapp/sessions/${sessionId}/verify`
     );
     return response.data;

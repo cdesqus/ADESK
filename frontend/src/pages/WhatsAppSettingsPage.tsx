@@ -28,6 +28,7 @@ export const WhatsAppSettingsPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [isTestingMessage, setIsTestingMessage] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<WhatsAppSession | undefined>(undefined);
+  const [refreshingSessionId, setRefreshingSessionId] = useState<string | null>(null);
 
   // Fetch all data on mount
   useEffect(() => {
@@ -101,16 +102,35 @@ export const WhatsAppSettingsPage: React.FC = () => {
   };
 
   const handleSessionCreated = async (session: WhatsAppSession) => {
-    if (sessions.some((s) => s.id === session.id)) {
-      setSessions(sessions.map((s) => (s.id === session.id ? session : s)));
-      setSuccessMessage('WhatsApp session updated successfully');
-    } else {
-      setSessions([...sessions, session]);
-      setSuccessMessage('WhatsApp session created successfully');
-    }
+    // Always reload sessions from backend to get the most accurate status
+    await loadSessions();
     setShowSessionModal(false);
     setSelectedSession(undefined);
+    if (session.status === 'WORKING') {
+      setSuccessMessage('WhatsApp session connected successfully! ✅');
+    } else {
+      setSuccessMessage('WhatsApp session updated successfully');
+    }
     setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
+  const handleRefreshSession = async (sessionId: string) => {
+    setRefreshingSessionId(sessionId);
+    try {
+      const result = await apiService.verifySession(sessionId);
+      setSessions(sessions.map((s) => 
+        s.id === sessionId 
+          ? { ...s, status: result.status || s.status, phoneNumber: result.phone_number || s.phoneNumber } 
+          : s
+      ));
+      setSuccessMessage(`Session status refreshed: ${result.status || 'checked'}`);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to refresh session status');
+      setTimeout(() => setErrorMessage(''), 5000);
+    } finally {
+      setRefreshingSessionId(null);
+    }
   };
 
   const handleDeleteSession = async (sessionId: string) => {
@@ -312,6 +332,15 @@ export const WhatsAppSettingsPage: React.FC = () => {
                           Link Device
                         </Button>
                       )}
+                      <Button
+                        onClick={() => handleRefreshSession(session.id)}
+                        variant="outline"
+                        size="sm"
+                        disabled={refreshingSessionId === session.id}
+                        title="Refresh session status from WAHA"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${refreshingSessionId === session.id ? 'animate-spin' : ''}`} />
+                      </Button>
                       <Button
                         onClick={() => handleDeleteSession(session.id)}
                         variant="outline"

@@ -284,31 +284,60 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 
 	// Handle session.status events
 	if payload.Event == "session.status" {
-		var statusEvent struct {
-			Status string `json:"status"`
+		// WAHA may send status in different formats depending on version:
+		// Format 1: {"status": "WORKING"}
+		// Format 2: {"event": "session.status", "session": "name", "payload": {"status": "WORKING"}}
+		// Format 3: root level status field
+		var rawData map[string]interface{}
+		var newStatus string
+
+		if err := json.Unmarshal(payload.Data, &rawData); err == nil {
+			// Try direct "status" field first
+			if s, ok := rawData["status"].(string); ok && s != "" {
+				newStatus = s
+			}
+			// Try nested "payload.status"
+			if newStatus == "" {
+				if payloadObj, ok := rawData["payload"].(map[string]interface{}); ok {
+					if s, ok := payloadObj["status"].(string); ok && s != "" {
+						newStatus = s
+					}
+				}
+			}
 		}
-		if err := json.Unmarshal(payload.Data, &statusEvent); err == nil {
-			log.Printf("Session status updated for %s: %s", payload.Session, statusEvent.Status)
-			
+
+		if newStatus != "" {
+			log.Printf("[WhatsApp Webhook] Session status event for '%s': new_status=%s raw_data=%s",
+				payload.Session, newStatus, string(payload.Data))
+
 			var session models.WhatsAppSession
-			if err := h.db.First(&session, "session_name = ?", payload.Session).Error; err == nil {
-				session.Status = statusEvent.Status
-				if session.Status == "WORKING" && session.PhoneNumber == "" {
+			if err := h.db.Where("session_name = ? AND deleted_at IS NULL", payload.Session).First(&session).Error; err == nil {
+				session.Status = newStatus
+				if newStatus == "WORKING" && session.PhoneNumber == "" {
 					if wahaSession, err := h.wahaClient.CheckSessionStatus(payload.Session); err == nil {
 						if wahaSession.PhoneNumber != "" {
 							session.PhoneNumber = wahaSession.PhoneNumber
 						}
+						if wahaSession.Me.Name != "" {
+							log.Printf("[WhatsApp Webhook] Session '%s' connected as: %s (%s)",
+								payload.Session, wahaSession.Me.Name, wahaSession.PhoneNumber)
+						}
 					}
 				}
 				h.db.Save(&session)
+				log.Printf("[WhatsApp Webhook] Session '%s' DB status updated to: %s", payload.Session, newStatus)
+			} else {
+				log.Printf("[WhatsApp Webhook] Session '%s' not found in DB for status update", payload.Session)
 			}
+		} else {
+			log.Printf("[WhatsApp Webhook] Could not parse status from session.status event: %s", string(payload.Data))
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		return
 	}
 
-	// Only handle message events
-	if payload.Event != "message" {
+	// Only handle message events (WAHA may send "message" or "message.any" depending on config)
+	if payload.Event != "message" && payload.Event != "message.any" {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		return
 	}

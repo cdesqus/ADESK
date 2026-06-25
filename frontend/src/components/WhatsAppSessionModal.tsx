@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { X, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { WhatsAppSession } from '@/types/whatsapp';
@@ -15,7 +15,9 @@ interface WhatsAppSessionModalProps {
   existingSession?: WhatsAppSession;
 }
 
-type ModalStep = 'form' | 'qr' | 'waiting';
+type ModalStep = 'form' | 'qr' | 'connected';
+
+const POLL_INTERVAL_MS = 3000; // Poll every 3 seconds
 
 export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
   isOpen,
@@ -38,9 +40,55 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
 
   const [qrCode, setQrCode] = useState('');
   const [isLoadingQR, setIsLoadingQR] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup polling on unmount or close
+  const stopPolling = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    setIsPolling(false);
+  }, []);
+
+  // Start polling for session status after QR is shown
+  const startPolling = useCallback((sessionId: string) => {
+    stopPolling(); // Clear any existing poll
+    setIsPolling(true);
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const result = await apiService.verifySession(sessionId);
+        if (result.status === 'WORKING' || result.connected) {
+          stopPolling();
+          setStep('connected');
+          // Update session with latest data
+          const updatedSession: WhatsAppSession = {
+            ...result,
+            id: sessionId,
+            status: 'WORKING',
+          };
+          setSession(updatedSession);
+          // Auto-close after short delay to show success state
+          setTimeout(() => {
+            if (onSessionCreated) {
+              onSessionCreated(updatedSession);
+            }
+            onClose();
+          }, 1500);
+        }
+      } catch (err) {
+        // Silently ignore polling errors — will retry next interval
+        console.warn('Session poll check failed:', err);
+      }
+    }, POLL_INTERVAL_MS);
+  }, [stopPolling, onSessionCreated, onClose]);
 
   useEffect(() => {
     if (!isOpen) {
+      stopPolling();
       setStep('form');
       setSessionName('');
       setSession(null);
@@ -53,7 +101,12 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
       setStep('qr');
       fetchQRCode(existingSession.id);
     }
-  }, [isOpen, existingSession]);
+  }, [isOpen, existingSession, stopPolling]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
 
   const fetchQRCode = async (sessionId: string) => {
     setIsLoadingQR(true);
@@ -61,12 +114,16 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
     try {
       const res = await apiService.getSessionQR(sessionId);
       if (res.status === 'WORKING' || res.status === 'CONNECTED') {
+        // Session already connected
+        setStep('connected');
         if (onSessionCreated && session) {
           onSessionCreated({ ...session, status: 'WORKING' });
         }
-        onClose();
+        setTimeout(() => onClose(), 1500);
       } else if (res.qrCode) {
         setQrCode(res.qrCode);
+        // Start polling for status change after QR is displayed
+        startPolling(sessionId);
       } else {
         setFormError('Failed to load QR code. Session might be starting.');
       }
@@ -108,6 +165,7 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
   const handleRefreshQR = async () => {
     if (!session) return;
     setPairingCode('');
+    stopPolling();
     fetchQRCode(session.id);
   };
 
@@ -118,6 +176,8 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
     try {
       const res = await apiService.requestPairingCode(session.id, phoneNumber);
       setPairingCode(res.pairingCode);
+      // Start polling when pairing code is also used
+      startPolling(session.id);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to request pairing code');
     } finally {
@@ -125,10 +185,32 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
     }
   };
 
-  const handleDismiss = () => {
-    if (session && onSessionCreated) {
-      onSessionCreated(session);
+  const handleDone = async () => {
+    if (!session) {
+      onClose();
+      return;
     }
+
+    // Do a final verify before closing
+    try {
+      const result = await apiService.verifySession(session.id);
+      const updatedSession: WhatsAppSession = {
+        ...session,
+        status: result.status || session.status,
+        phoneNumber: result.phone_number || session.phoneNumber,
+      };
+
+      if (onSessionCreated) {
+        onSessionCreated(updatedSession);
+      }
+    } catch {
+      // Even if verify fails, still pass the session back
+      if (onSessionCreated) {
+        onSessionCreated(session);
+      }
+    }
+
+    stopPolling();
     onClose();
   };
 
@@ -140,10 +222,11 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
-            {step === 'form' ? 'Create New WhatsApp Session' : 'Session QR Code'}
+            {step === 'form' ? 'Create New WhatsApp Session' : 
+             step === 'connected' ? 'Session Connected!' : 'Scan QR Code'}
           </h2>
           <button
-            onClick={onClose}
+            onClick={() => { stopPolling(); onClose(); }}
             className="text-gray-400 hover:text-gray-600 transition-colors"
             aria-label="Close modal"
           >
@@ -189,12 +272,36 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
             </div>
           )}
 
+          {step === 'connected' && (
+            <div className="text-center py-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                <CheckCircle2 className="w-10 h-10 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Successfully Connected!</h3>
+              <p className="text-sm text-gray-600">
+                WhatsApp session <span className="font-medium">{session?.session_name}</span> is now active.
+              </p>
+              {session?.phoneNumber && (
+                <p className="text-sm text-gray-500 mt-1">Phone: {session.phoneNumber}</p>
+              )}
+            </div>
+          )}
+
           {step === 'qr' && session && (
             <div className="space-y-6">
               <div className="text-center">
                 <p className="text-sm text-gray-600 mb-2">
                   Session: <span className="font-semibold">{session.session_name}</span>
                 </p>
+
+                {/* Polling indicator */}
+                {isPolling && (
+                  <div className="flex items-center justify-center gap-2 mb-3 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
+                    <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                    <span className="text-sm text-blue-700 font-medium">Waiting for scan...</span>
+                  </div>
+                )}
+
                 <div className="mb-6 flex flex-col items-center justify-center">
                   {isLoadingQR ? (
                     <div className="w-64 h-64 bg-gray-100 rounded-lg flex items-center justify-center animate-pulse">
@@ -273,14 +380,16 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
 
         {/* Footer */}
         <div className="flex gap-3 p-6 border-t border-gray-200 bg-gray-50">
-          <Button
-            onClick={onClose}
-            variant="outline"
-            className="flex-1"
-            disabled={isCreating || isLoading}
-          >
-            Cancel
-          </Button>
+          {step !== 'connected' && (
+            <Button
+              onClick={() => { stopPolling(); onClose(); }}
+              variant="outline"
+              className="flex-1"
+              disabled={isCreating || isLoading}
+            >
+              Cancel
+            </Button>
+          )}
           {step === 'form' && (
             <Button
               onClick={handleCreate}
@@ -292,11 +401,19 @@ export const WhatsAppSessionModal: React.FC<WhatsAppSessionModalProps> = ({
           )}
           {step === 'qr' && (
             <Button
-              onClick={handleDismiss}
+              onClick={handleDone}
               className="flex-1 bg-green-600 hover:bg-green-700 text-white"
               disabled={isLoading}
             >
-              {isLoading ? 'Checking...' : 'Done'}
+              Done
+            </Button>
+          )}
+          {step === 'connected' && (
+            <Button
+              onClick={onClose}
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+            >
+              Close
             </Button>
           )}
         </div>
