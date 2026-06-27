@@ -348,8 +348,8 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 		return
 	}
 
-	// Only handle message events (WAHA may send "message" or "message.any" depending on config)
-	if payload.Event != "message" && payload.Event != "message.any" {
+	// Only handle 'message' events to prevent duplicates from 'message.any'
+	if payload.Event != "message" {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		return
 	}
@@ -409,17 +409,12 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 			}
 		}
 
-		// Fallback for textual mentions like @helpdesk or any leading numeric mention in the group
+		// Fallback for textual mentions like @helpdesk
 		if !isDirectedToBot {
 			reBotMention := regexp.MustCompile(`(?i)@helpdesk`)
 			if reBotMention.MatchString(msgEvent.Body) {
 				isDirectedToBot = true
 			}
-		}
-
-		if !isDirectedToBot && looksLikeBotMention(msgEvent.Body) {
-			log.Printf("[WhatsApp] numeric group mention detected, directing to bot: %s", msgEvent.Body)
-			isDirectedToBot = true
 		}
 	}
 
@@ -441,6 +436,12 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 
 	// Parse message for actions when the payload contains a body
 	if strings.TrimSpace(msgEvent.Body) != "" {
+		if isGroup && !isDirectedToBot {
+			log.Printf("[WhatsApp] group message not directed to bot, ignoring body session=%s from=%s body=%q", payload.Session, senderPhone, msgEvent.Body)
+			c.JSON(http.StatusOK, gin.H{"status": "ok"})
+			return
+		}
+
 		var action *whatsapp.ParsedAction
 		var aiReply string
 
@@ -466,11 +467,7 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 
 		// Fallback to Regex parser
 		if action == nil {
-			parserDirected := isDirectedToBot
-			if isGroup && whatsapp.ParseMessage(msgEvent.Body, true) != nil {
-				parserDirected = true
-			}
-			action = whatsapp.ParseMessage(msgEvent.Body, parserDirected)
+			action = whatsapp.ParseMessage(msgEvent.Body, isDirectedToBot)
 		}
 
 		// Check for quoted message (swipe reply)
@@ -617,12 +614,6 @@ func containsMention(body, id string) bool {
 	}
 
 	return false
-}
-
-func looksLikeBotMention(body string) bool {
-	reMention := regexp.MustCompile(`@([0-9]{5,})`)
-	matches := reMention.FindAllStringSubmatch(body, -1)
-	return len(matches) > 0
 }
 
 func isValidWhatsAppAction(actionType string) bool {
