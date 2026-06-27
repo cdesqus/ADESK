@@ -422,6 +422,9 @@ func formatWANumber(phone string) string {
 			cleanNumber += string(c)
 		}
 	}
+	if strings.HasPrefix(cleanNumber, "0") {
+		cleanNumber = "62" + strings.TrimPrefix(cleanNumber, "0")
+	}
 	return cleanNumber + "@c.us"
 }
 

@@ -93,11 +93,15 @@ func (sc *SMTPClient) SendAutoReplyWithClassification(toEmail, toName, subject s
 	// Create email message with HTML
 	from := fmt.Sprintf("%s <%s>", sc.fromName, sc.fromEmail)
 
+	ccEmail := "support@idesolusi.co.id"
+	ccHeader := fmt.Sprintf("Cc: %s\r\n", ccEmail)
+
 	htmlBody := buildAutoReplyHTML(customerName, body, ticketNum, ticketURL, sc.fromName)
 
-	headers := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=\"UTF-8\"\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n",
+	headers := fmt.Sprintf("From: %s\r\nTo: %s\r\n%sSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=\"UTF-8\"\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n",
 		from,
 		toEmail,
+		ccHeader,
 		replySubject,
 	)
 
@@ -106,7 +110,7 @@ func (sc *SMTPClient) SendAutoReplyWithClassification(toEmail, toName, subject s
 	// Send email
 	addr := fmt.Sprintf("%s:%d", sc.host, sc.port)
 	auth := smtp.PlainAuth("", sc.user, sc.password, sc.host)
-	err := smtp.SendMail(addr, auth, sc.fromEmail, []string{toEmail}, []byte(fullMessage))
+	err := smtp.SendMail(addr, auth, sc.fromEmail, []string{toEmail, ccEmail}, []byte(fullMessage))
 	if err != nil {
 		log.Printf("Failed to send email to %s: %v", toEmail, err)
 		return classification, fmt.Errorf("failed to send email: %w", err)
