@@ -309,9 +309,24 @@ func (h *ActionHandler) HandleTicketUpdate(sessionName, senderPhone, replyTo str
 	}
 
 	if !found {
-		h.messageSender.SendMessage(sessionName, replyTo,
-			"Anda tidak memiliki akses untuk mengubah tiket ini.")
-		return fmt.Errorf("engineer phone not found")
+		// If the message is from a designated support group, allow the action
+		// even if we couldn't match an exact engineer phone. This supports
+		// engineers who post from group participant IDs that don't map to stored phones.
+		if isGroup {
+			var waGroup models.CustomerWAGroup
+			if err := h.db.Where("group_id = ?", replyTo).First(&waGroup).Error; err == nil && waGroup.IsSupport {
+				// proceed without an engineer mapping (engineerPhone remains zero-value)
+				log.Printf("[WhatsApp] support group override: allowing update from group %s", replyTo)
+			} else {
+				h.messageSender.SendMessage(sessionName, replyTo,
+					"Anda tidak memiliki akses untuk mengubah tiket ini.")
+				return fmt.Errorf("engineer phone not found")
+			}
+		} else {
+			h.messageSender.SendMessage(sessionName, replyTo,
+				"Anda tidak memiliki akses untuk mengubah tiket ini.")
+			return fmt.Errorf("engineer phone not found")
+		}
 	}
 
 
@@ -328,9 +343,13 @@ func (h *ActionHandler) HandleTicketUpdate(sessionName, senderPhone, replyTo str
 	h.db.Save(&ticket)
 
 	// Add update/comment
+	var engID *uint
+	if found && engineerPhone.EngineerID != 0 {
+		engID = &engineerPhone.EngineerID
+	}
 	update := models.Update{
 		TicketID:   ticket.ID,
-		EngineerID: &engineerPhone.EngineerID,
+		EngineerID: engID,
 		Message:    content,
 		ActionType: "COMMENT",
 		CreatedAt:  time.Now(),
@@ -395,9 +414,20 @@ func (h *ActionHandler) HandleTicketClose(sessionName, senderPhone, replyTo stri
 	}
 
 	if !found2 {
-		h.messageSender.SendMessage(sessionName, replyTo,
-			"Anda tidak memiliki akses untuk menutup tiket ini.")
-		return fmt.Errorf("engineer phone not found")
+		if isGroup {
+			var waGroup models.CustomerWAGroup
+			if err := h.db.Where("group_id = ?", replyTo).First(&waGroup).Error; err == nil && waGroup.IsSupport {
+				log.Printf("[WhatsApp] support group override: allowing close from group %s", replyTo)
+			} else {
+				h.messageSender.SendMessage(sessionName, replyTo,
+					"Anda tidak memiliki akses untuk menutup tiket ini.")
+				return fmt.Errorf("engineer phone not found")
+			}
+		} else {
+			h.messageSender.SendMessage(sessionName, replyTo,
+				"Anda tidak memiliki akses untuk menutup tiket ini.")
+			return fmt.Errorf("engineer phone not found")
+		}
 	}
 
 	// Get ticket
@@ -415,9 +445,13 @@ func (h *ActionHandler) HandleTicketClose(sessionName, senderPhone, replyTo stri
 	h.db.Save(&ticket)
 
 	// Add update/comment
+	var engID2 *uint
+	if found2 && engineerPhone.EngineerID != 0 {
+		engID2 = &engineerPhone.EngineerID
+	}
 	update := models.Update{
 		TicketID:   ticket.ID,
-		EngineerID: &engineerPhone.EngineerID,
+		EngineerID: engID2,
 		Message:    content,
 		ActionType: "STATUS_CHANGE",
 		CreatedAt:  time.Now(),
