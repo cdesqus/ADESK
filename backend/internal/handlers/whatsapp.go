@@ -466,7 +466,11 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 
 		// Fallback to Regex parser
 		if action == nil {
-			action = whatsapp.ParseMessage(msgEvent.Body, isDirectedToBot)
+			parserDirected := isDirectedToBot
+			if isGroup && whatsapp.ParseMessage(msgEvent.Body, true) != nil {
+				parserDirected = true
+			}
+			action = whatsapp.ParseMessage(msgEvent.Body, parserDirected)
 		}
 
 		// Check for quoted message (swipe reply)
