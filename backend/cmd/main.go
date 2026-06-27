@@ -344,6 +344,7 @@ func setupRoutes(
 		wa.POST("/engineers/:id/phone", waHandler.AddEngineerPhone)
 		wa.GET("/engineer-phones", waHandler.GetEngineerPhones)
 		wa.PUT("/engineer-phones/:id", waHandler.UpdateEngineerPhone)
+		wa.PATCH("/engineer-phones/:id", waHandler.UpdateEngineerPhone)
 		wa.DELETE("/engineer-phones/:id", waHandler.DeleteEngineerPhone)
 		wa.POST("/test-message", waHandler.TestMessage)
 		wa.GET("/webhook/status", waHandler.GetHookStatus)

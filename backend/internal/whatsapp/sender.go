@@ -3,6 +3,7 @@ package whatsapp
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"ai-desk/internal/models"
@@ -32,7 +33,7 @@ func (s *MessageSender) sendWithRetry(sessionName, phone, message string, maxRet
 		msgID, err := s.client.SendMessage(sessionName, phone, message)
 		if err == nil {
 			log.Printf("Message sent successfully via WhatsApp: msgID=%s to=%s", msgID, phone)
-			s.logMessage(sessionName, "", msgID, phone, message, "text", "outbound", "delivered", nil, nil)
+			s.logMessage(sessionName, msgID, msgID, phone, message, "text", "outbound", "delivered", nil, nil)
 			return nil
 		}
 		lastErr = err
@@ -54,10 +55,17 @@ func (s *MessageSender) SendGroupMessage(sessionName, groupID, message string) e
 }
 
 func (s *MessageSender) logMessage(sessionName, messageID, sentID, phone, body, msgType, direction, status string, customerID, ticketID *uint) {
+	id := fmt.Sprintf("wa_%d", time.Now().UnixNano())
+	// If no message_id provided, use the generated log id to avoid empty key collisions
+	mid := messageID
+	if strings.TrimSpace(mid) == "" {
+		mid = id
+	}
+
 	logEntry := models.WhatsAppLog{
-		ID:          fmt.Sprintf("wa_%d", time.Now().UnixNano()),
+		ID:          id,
 		SessionName: sessionName,
-		MessageID:   messageID,
+		MessageID:   mid,
 		FromPhone:   "system",
 		ToPhone:     phone,
 		Body:        body,

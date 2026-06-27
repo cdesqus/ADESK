@@ -37,9 +37,9 @@ func ParseMessage(body string, isDirectedToBot bool) *ParsedAction {
 	cleanBody := reMention.ReplaceAllString(body, "")
 	cleanBody = strings.TrimSpace(cleanBody)
 
-	// Check for ticket progress update: "2026-06-001 progress: ..." or "2026-06-001 update: ..."
-	if matched, _ := regexp.MatchString(`(?i)\d{4}-\d{2}-\d{3,}\s+(progress|update):`, cleanBody); matched {
-		re := regexp.MustCompile(`(?i)(\d{4}-\d{2}-\d{3,})\s+(progress|update):\s*(.+)`)
+	// Check for ticket progress update: "2026-06-001 progress: ..." or "IDE-2606-14 update: ..."
+	if matched, _ := regexp.MatchString(`(?i)(?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3})\s+(progress|update):`, cleanBody); matched {
+		re := regexp.MustCompile(`(?i)((?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3}))\s+(progress|update):\s*(.+)`)
 		matches := re.FindStringSubmatch(cleanBody)
 		if len(matches) > 3 {
 			return &ParsedAction{
@@ -50,9 +50,9 @@ func ParseMessage(body string, isDirectedToBot bool) *ParsedAction {
 		}
 	}
 
-	// Check for close ticket: "2026-06-001 close: ..."
-	if matched, _ := regexp.MatchString(`(?i)\d{4}-\d{2}-\d{3,}\s+close:`, cleanBody); matched {
-		re := regexp.MustCompile(`(?i)(\d{4}-\d{2}-\d{3,})\s+close:\s*(.+)`)
+	// Check for close ticket: "2026-06-001 close: ..." or "IDE-2606-14 close: ..."
+	if matched, _ := regexp.MatchString(`(?i)(?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3})\s+close:`, cleanBody); matched {
+		re := regexp.MustCompile(`(?i)((?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3}))\s+close:\s*(.+)`)
 		matches := re.FindStringSubmatch(cleanBody)
 		if len(matches) > 2 {
 			return &ParsedAction{
@@ -63,9 +63,9 @@ func ParseMessage(body string, isDirectedToBot bool) *ParsedAction {
 		}
 	}
 
-	// Check for reopen ticket: "2026-06-001 reopen"
-	if matched, _ := regexp.MatchString(`(?i)\d{4}-\d{2}-\d{3,}\s+reopen`, cleanBody); matched {
-		re := regexp.MustCompile(`(?i)(\d{4}-\d{2}-\d{3,})\s+reopen`)
+	// Check for reopen ticket: "2026-06-001 reopen" or "IDE-2606-14 reopen"
+	if matched, _ := regexp.MatchString(`(?i)(?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3})\s+reopen`, cleanBody); matched {
+		re := regexp.MustCompile(`(?i)((?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3}))\s+reopen`)
 		matches := re.FindStringSubmatch(cleanBody)
 		if len(matches) > 1 {
 			return &ParsedAction{
@@ -76,9 +76,9 @@ func ParseMessage(body string, isDirectedToBot bool) *ParsedAction {
 		}
 	}
 
-	// Check for status check: "status 2026-06-001" or "2026-06-001 status"
-	if matched, _ := regexp.MatchString(`(?i)(status\s+\d{4}-\d{2}-\d{3,}|\d{4}-\d{2}-\d{3,}\s+status)`, cleanBody); matched {
-		re := regexp.MustCompile(`(?i)(\d{4}-\d{2}-\d{3,})`)
+	// Check for status check: "status 2026-06-001" or "IDE-2606-14 status"
+	if matched, _ := regexp.MatchString(`(?i)(status\s+(?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3})|(?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3})\s+status)`, cleanBody); matched {
+		re := regexp.MustCompile(`(?i)((?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3}))`)
 		matches := re.FindStringSubmatch(cleanBody)
 		if len(matches) > 1 {
 			return &ParsedAction{
