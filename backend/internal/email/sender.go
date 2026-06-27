@@ -238,7 +238,6 @@ func buildAutoReplyHTML(customerName string, replyBody string, ticketNum string,
 		%s
 		<p>Berikut adalah no ticket anda: <strong>%s</strong></p>
 		<br>
-		<p>Salam,</p>
 		<p>Best Regards,</p>
 		<p>Helpdesk IDE Solusi</p>
 	</div>

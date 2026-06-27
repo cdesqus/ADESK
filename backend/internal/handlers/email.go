@@ -129,6 +129,11 @@ func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*mod
 	logEntry.CustomerID = &matchResult.CustomerID
 
 	// Create ticket
+	emailFromStr := emailMsg.From
+	if emailMsg.FromName != "" {
+		emailFromStr = fmt.Sprintf("%s <%s>", emailMsg.FromName, emailMsg.From)
+	}
+
 	ticket := models.Ticket{
 		CustomerID:  matchResult.CustomerID,
 		Title:       emailMsg.Subject,
@@ -136,7 +141,7 @@ func (h *EmailHandler) CreateTicketFromEmail(emailMsg *email.EmailMessage) (*mod
 		Status:      "OPEN",
 		Priority:    "MEDIUM",
 		Source:      "EMAIL",
-		EmailFrom:   emailMsg.From,
+		EmailFrom:   emailFromStr,
 		Category:    "General",
 	}
 

@@ -3,6 +3,7 @@ package whatsapp
 import (
 	"fmt"
 	"log"
+	"net/mail"
 	"regexp"
 	"strings"
 	"time"
@@ -404,7 +405,11 @@ func (h *ActionHandler) HandleTicketClose(sessionName, senderPhone, replyTo stri
 	if ticket.EmailFrom != "" && h.smtpClient != nil {
 		var customer models.Customer
 		customerName := "Pelanggan"
-		if err := h.db.First(&customer, ticket.CustomerID).Error; err == nil && customer.Name != "" {
+
+		// Try to parse name from EmailFrom (e.g. "John Doe <john@example.com>")
+		if addr, err := mail.ParseAddress(ticket.EmailFrom); err == nil && addr.Name != "" {
+			customerName = addr.Name
+		} else if err := h.db.First(&customer, ticket.CustomerID).Error; err == nil && customer.Name != "" {
 			customerName = customer.Name
 		}
 

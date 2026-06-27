@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/mail"
 	"strconv"
 	"time"
 
@@ -280,7 +281,11 @@ func (h *TicketHandler) UpdateTicket(c *gin.Context) {
 	if updateReq.Status == "CLOSED" && ticket.Status != "CLOSED" && ticket.EmailFrom != "" {
 		var customer models.Customer
 		customerName := "Pelanggan"
-		if err := h.db.First(&customer, ticket.CustomerID).Error; err == nil && customer.Name != "" {
+
+		// Try to parse name from EmailFrom (e.g. "John Doe <john@example.com>")
+		if addr, err := mail.ParseAddress(ticket.EmailFrom); err == nil && addr.Name != "" {
+			customerName = addr.Name
+		} else if err := h.db.First(&customer, ticket.CustomerID).Error; err == nil && customer.Name != "" {
 			customerName = customer.Name
 		}
 
