@@ -326,21 +326,23 @@ func (h *EmailHandler) sendEngineerWhatsAppNotification(engineer *models.Enginee
 	var waPhones []models.EngineerWAPhone
 	h.db.Where("engineer_id = ? AND is_active = ?", engineer.ID, true).Find(&waPhones)
 
-	notified := false
+	sentPhones := make(map[string]bool)
 	var phoneNumbers []string
 	
 	for _, wp := range waPhones {
-		phoneNumbers = append(phoneNumbers, wp.PhoneNumber)
-		notified = true
+		formatted := formatWANumber(wp.PhoneNumber)
+		if !sentPhones[formatted] {
+			phoneNumbers = append(phoneNumbers, wp.PhoneNumber)
+			sentPhones[formatted] = true
+		}
 	}
 
 	// Fallback to legacy WhatsappNumber if no active phones found in EngineerWAPhone
-	if !notified && engineer.WhatsappNumber != "" {
+	if len(sentPhones) == 0 && engineer.WhatsappNumber != "" {
 		phoneNumbers = append(phoneNumbers, engineer.WhatsappNumber)
-		notified = true
 	}
 
-	if !notified {
+	if len(phoneNumbers) == 0 {
 		log.Printf("[WANotify] Engineer %s has no WhatsApp number, skipping WA notification", engineer.Name)
 		return
 	}
