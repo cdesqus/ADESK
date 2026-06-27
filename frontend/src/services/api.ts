@@ -526,6 +526,7 @@ class ApiService {
       ticketsList: (data.tickets_list || data.ticketsList || []).map((t: any) => ({
         id: t.id,
         title: t.title,
+        description: t.description,
         status: t.status,
         priority: t.priority,
         createdAt: t.created_at || t.createdAt,

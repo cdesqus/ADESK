@@ -273,20 +273,19 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 
 		// Notify engineer
 		message := fmt.Sprintf("Tiket baru %s dari %s: %s", ticket.TicketNumber, customerName, content)
-		
 		var waPhones []models.EngineerWAPhone
 		h.db.Where("engineer_id = ? AND is_active = ?", engineer.ID, true).Find(&waPhones)
 
-		sentPhones := make(map[string]bool)
-		for _, wp := range waPhones {
-			formatted := formatPhone(wp.PhoneNumber)
-			if !sentPhones[formatted] {
-				h.messageSender.SendMessage(sessionName, formatted, message)
-				sentPhones[formatted] = true
+		if len(waPhones) > 0 {
+			var bestPhone string
+			for _, wp := range waPhones {
+				bestPhone = wp.PhoneNumber
+				if !strings.HasSuffix(bestPhone, "@lid") {
+					break
+				}
 			}
-		}
-
-		if len(sentPhones) == 0 && engineer.WhatsappNumber != "" {
+			h.messageSender.SendMessage(sessionName, formatPhone(bestPhone), message)
+		} else if engineer.WhatsappNumber != "" {
 			h.messageSender.SendMessage(sessionName, formatPhone(engineer.WhatsappNumber), message)
 		}
 	}

@@ -117,30 +117,32 @@ func ExportToCSV(report *models.ReportData) ([]byte, error) {
 	// Create Tickets Detail sheet
 	ticketsSheet := "Tickets"
 	f.NewSheet(ticketsSheet)
-	f.SetColWidth(ticketsSheet, "A", "H", 18)
+	f.SetColWidth(ticketsSheet, "A", "I", 18)
 
 	f.SetCellValue(ticketsSheet, "A1", "All Tickets")
 	f.SetCellValue(ticketsSheet, "A2", "Ticket ID")
 	f.SetCellValue(ticketsSheet, "B2", "Title")
-	f.SetCellValue(ticketsSheet, "C2", "Created")
-	f.SetCellValue(ticketsSheet, "D2", "Resolved")
-	f.SetCellValue(ticketsSheet, "E2", "Time (hrs)")
-	f.SetCellValue(ticketsSheet, "F2", "Status")
-	f.SetCellValue(ticketsSheet, "G2", "Engineer")
-	f.SetCellValue(ticketsSheet, "H2", "Source")
+	f.SetCellValue(ticketsSheet, "C2", "Description")
+	f.SetCellValue(ticketsSheet, "D2", "Created")
+	f.SetCellValue(ticketsSheet, "E2", "Resolved")
+	f.SetCellValue(ticketsSheet, "F2", "Time (hrs)")
+	f.SetCellValue(ticketsSheet, "G2", "Status")
+	f.SetCellValue(ticketsSheet, "H2", "Engineer")
+	f.SetCellValue(ticketsSheet, "I2", "Source")
 
 	row = 3
 	for _, ticket := range report.TicketsList {
 		f.SetCellValue(ticketsSheet, fmt.Sprintf("A%d", row), ticket.TicketNumber)
 		f.SetCellValue(ticketsSheet, fmt.Sprintf("B%d", row), ticket.Title)
-		f.SetCellValue(ticketsSheet, fmt.Sprintf("C%d", row), ticket.CreatedAt.Format("2006-01-02 15:04"))
+		f.SetCellValue(ticketsSheet, fmt.Sprintf("C%d", row), ticket.Description)
+		f.SetCellValue(ticketsSheet, fmt.Sprintf("D%d", row), ticket.CreatedAt.Format("2006-01-02 15:04"))
 		if ticket.ResolvedAt != nil {
-			f.SetCellValue(ticketsSheet, fmt.Sprintf("D%d", row), ticket.ResolvedAt.Format("2006-01-02 15:04"))
+			f.SetCellValue(ticketsSheet, fmt.Sprintf("E%d", row), ticket.ResolvedAt.Format("2006-01-02 15:04"))
 		}
-		f.SetCellValue(ticketsSheet, fmt.Sprintf("E%d", row), fmt.Sprintf("%.2f", ticket.TimeToResolve))
-		f.SetCellValue(ticketsSheet, fmt.Sprintf("F%d", row), ticket.Status)
-		f.SetCellValue(ticketsSheet, fmt.Sprintf("G%d", row), ticket.Engineer)
-		f.SetCellValue(ticketsSheet, fmt.Sprintf("H%d", row), ticket.Source)
+		f.SetCellValue(ticketsSheet, fmt.Sprintf("F%d", row), fmt.Sprintf("%.2f", ticket.TimeToResolve))
+		f.SetCellValue(ticketsSheet, fmt.Sprintf("G%d", row), ticket.Status)
+		f.SetCellValue(ticketsSheet, fmt.Sprintf("H%d", row), ticket.Engineer)
+		f.SetCellValue(ticketsSheet, fmt.Sprintf("I%d", row), ticket.Source)
 		row++
 	}
 

@@ -136,14 +136,22 @@ func (rh *ReportHandler) GetReport(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, ReportListResponse{
-		ID:           report.ID,
-		CustomerID:   report.CustomerID,
-		Month:        report.Month,
-		Year:         report.Year,
-		GeneratedAt:  report.GeneratedAt,
-		SentAt:       report.SentAt,
-		SentToEmails: report.SentToEmails,
+	reportData, err := rh.generator.GenerateMonthlyReport(ctx, report.CustomerID, report.Month, report.Year)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate report data"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":           report.ID,
+		"customer_name": reportData.CustomerName,
+		"month":        reportData.Month,
+		"month_num":    reportData.MonthNum,
+		"year":         reportData.Year,
+		"generated_at": reportData.GeneratedAt,
+		"metrics":      reportData.Metrics,
+		"tickets_list": reportData.TicketsList,
+		"sent_at":      report.SentAt,
 	})
 }
 
@@ -181,8 +189,22 @@ func (rh *ReportHandler) DownloadReport(c *gin.Context) {
 	}
 
 	if len(data) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Report file not found"})
-		return
+		// Dynamically generate if missing
+		reportData, err := rh.generator.GenerateMonthlyReport(ctx, report.CustomerID, report.Month, report.Year)
+		if err == nil {
+			if format == "csv" {
+				data, _ = reports.ExportToCSV(reportData)
+			} else {
+				data, _ = reports.ExportToPDF(reportData)
+			}
+			// Best effort save
+			_ = rh.repo.SaveReport(ctx, report.CustomerID, report.Month, report.Year, report.CSVData, report.PDFData, report.SentToEmails)
+		}
+
+		if len(data) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Report file not found or failed to generate"})
+			return
+		}
 	}
 
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))

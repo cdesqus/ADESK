@@ -102,6 +102,57 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report }) => {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Engineer Performance</h3>
         <EngineerPerformanceTable engineers={metrics.engineerStats} />
       </div>
+
+      {/* Tickets List */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Tickets Details</h3>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 w-1 whitespace-nowrap">ID</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 min-w-[200px]">Title & Description</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 w-1 whitespace-nowrap">Created</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 w-1 whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 w-1 whitespace-nowrap">Hrs</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 w-1 whitespace-nowrap">Engineer</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {report.ticketsList && report.ticketsList.map((t, idx) => (
+                <tr key={idx} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    {t.id || t.ticketNumber || `#${idx + 1}`}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    <div className="font-medium">{t.title}</div>
+                    {t.description && <div className="text-gray-500 text-xs mt-1">{t.description}</div>}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                    {new Date(t.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm">
+                    <span className="inline-flex px-2 py-1 rounded-full bg-gray-100 text-xs">{t.status}</span>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                    {t.timeToResolve ? t.timeToResolve.toFixed(1) : '-'}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                    {t.engineer || '-'}
+                  </td>
+                </tr>
+              ))}
+              {(!report.ticketsList || report.ticketsList.length === 0) && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                    No tickets found for this period
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };

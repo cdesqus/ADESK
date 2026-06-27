@@ -126,6 +126,7 @@ func (rg *ReportGenerator) GenerateMonthlyReport(ctx context.Context, customerID
 			TicketNumber:  ticket.TicketNumber,
 			ID:            ticket.ID,
 			Title:         ticket.Title,
+			Description:   ticket.Description,
 			CreatedAt:     ticket.CreatedAt,
 			ResolvedAt:    ticket.ResolvedAt,
 			TimeToResolve: timeToResolve,

@@ -261,7 +261,9 @@ export const TicketsPage: React.FC = () => {
                       />
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-primary-700 whitespace-nowrap w-1">
-                      #{ticket.ticket_number || ticket.id}
+                      <Link to={`/tickets/${ticket.id}`} className="hover:underline">
+                        #{ticket.ticket_number || ticket.id}
+                      </Link>
                     </td>
                     <td className="px-6 py-4 w-full max-w-[200px]">
                       <p className="text-sm font-medium text-gray-900 truncate">

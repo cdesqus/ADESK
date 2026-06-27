@@ -22,6 +22,7 @@ export interface ReportMetrics {
 export interface TicketSummary {
   id: string;
   title: string;
+  description?: string;
   status: string;
   priority: string;
   createdAt: string;

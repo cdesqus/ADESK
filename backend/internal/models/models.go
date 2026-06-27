@@ -261,6 +261,7 @@ type TicketSummary struct {
 	TicketNumber  string     `json:"ticket_number"`
 	ID            uint       `json:"id"`
 	Title         string     `json:"title"`
+	Description   string     `json:"description"`
 	CreatedAt     time.Time  `json:"created_at"`
 	ResolvedAt    *time.Time `json:"resolved_at"`
 	TimeToResolve float64    `json:"time_to_resolve"` // hours
