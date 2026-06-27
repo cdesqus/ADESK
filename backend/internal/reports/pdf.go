@@ -192,12 +192,13 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 	pdf.SetTextColor(255, 255, 255)
 
 	cell(pdf, 15, headerHeight, "Ticket", "1", 0, "C", true)
-	cell(pdf, 30, headerHeight, "Title", "1", 0, "L", true)
-	cell(pdf, 55, headerHeight, "Description", "1", 0, "L", true)
-	cell(pdf, 20, headerHeight, "Created", "1", 0, "C", true)
+	cell(pdf, 25, headerHeight, "Title", "1", 0, "L", true)
+	cell(pdf, 30, headerHeight, "Description", "1", 0, "L", true)
+	cell(pdf, 30, headerHeight, "Resolution", "1", 0, "L", true)
+	cell(pdf, 15, headerHeight, "Created", "1", 0, "C", true)
 	cell(pdf, 20, headerHeight, "Status", "1", 0, "C", true)
 	cell(pdf, 15, headerHeight, "Hrs", "1", 0, "C", true)
-	cell(pdf, 35, headerHeight, "Engineer", "1", 1, "L", true)
+	cell(pdf, 40, headerHeight, "Engineer", "1", 1, "L", true)
 
 	pdf.SetFont("Helvetica", "", 7)
 	pdf.SetTextColor(0, 0, 0)
@@ -218,12 +219,13 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 			pdf.SetFillColor(colorHeaderRGB, colorHeaderG, colorHeaderB)
 			pdf.SetTextColor(255, 255, 255)
 			cell(pdf, 15, headerHeight, "ID", "1", 0, "C", true)
-			cell(pdf, 30, headerHeight, "Title", "1", 0, "L", true)
-			cell(pdf, 55, headerHeight, "Description", "1", 0, "L", true)
-			cell(pdf, 20, headerHeight, "Created", "1", 0, "C", true)
+			cell(pdf, 25, headerHeight, "Title", "1", 0, "L", true)
+			cell(pdf, 30, headerHeight, "Description", "1", 0, "L", true)
+			cell(pdf, 30, headerHeight, "Resolution", "1", 0, "L", true)
+			cell(pdf, 15, headerHeight, "Created", "1", 0, "C", true)
 			cell(pdf, 20, headerHeight, "Status", "1", 0, "C", true)
 			cell(pdf, 15, headerHeight, "Hrs", "1", 0, "C", true)
-			cell(pdf, 35, headerHeight, "Engineer", "1", 1, "L", true)
+			cell(pdf, 40, headerHeight, "Engineer", "1", 1, "L", true)
 			pdf.SetFont("Helvetica", "", 7)
 			pdf.SetTextColor(0, 0, 0)
 			alternateRow = false
@@ -237,26 +239,32 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 
 		cell(pdf, 15, cellHeight, ticket.TicketNumber, "1", 0, "C", true)
 		titleLen := len(ticket.Title)
-		if titleLen > 20 {
-			titleLen = 20
+		if titleLen > 18 {
+			titleLen = 18
 		}
-		cell(pdf, 30, cellHeight, ticket.Title[:titleLen], "1", 0, "L", true)
+		cell(pdf, 25, cellHeight, ticket.Title[:titleLen], "1", 0, "L", true)
 		
 		descLen := len(ticket.Description)
-		if descLen > 40 {
-			descLen = 40
+		if descLen > 22 {
+			descLen = 22
 		}
-		cell(pdf, 55, cellHeight, ticket.Description[:descLen], "1", 0, "L", true)
+		cell(pdf, 30, cellHeight, ticket.Description[:descLen], "1", 0, "L", true)
 
-		cell(pdf, 20, cellHeight, ticket.CreatedAt.Format("01-02"), "1", 0, "C", true)
+		resLen := len(ticket.Resolution)
+		if resLen > 22 {
+			resLen = 22
+		}
+		cell(pdf, 30, cellHeight, ticket.Resolution[:resLen], "1", 0, "L", true)
+
+		cell(pdf, 15, cellHeight, ticket.CreatedAt.Format("01-02"), "1", 0, "C", true)
 		cell(pdf, 20, cellHeight, ticket.Status, "1", 0, "C", true)
 		cell(pdf, 15, cellHeight, fmt.Sprintf("%.1f", ticket.TimeToResolve), "1", 0, "C", true)
 		
 		engLen := len(ticket.Engineer)
-		if engLen > 20 {
-		    engLen = 20
+		if engLen > 25 {
+		    engLen = 25
 		}
-		cell(pdf, 35, cellHeight, ticket.Engineer[:engLen], "1", 1, "L", true)
+		cell(pdf, 40, cellHeight, ticket.Engineer[:engLen], "1", 1, "L", true)
 		alternateRow = !alternateRow
 	}
 

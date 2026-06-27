@@ -179,32 +179,30 @@ func (rh *ReportHandler) DownloadReport(c *gin.Context) {
 	var filename string
 
 	if format == "csv" {
-		data = report.CSVData
 		contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 		filename = fmt.Sprintf("report_%d_%d.xlsx", report.Month, report.Year)
 	} else {
-		data = report.PDFData
 		contentType = "application/pdf"
 		filename = fmt.Sprintf("report_%d_%d.pdf", report.Month, report.Year)
 	}
 
-	if len(data) == 0 {
-		// Dynamically generate if missing
-		reportData, err := rh.generator.GenerateMonthlyReport(ctx, report.CustomerID, report.Month, report.Year)
-		if err == nil {
-			if format == "csv" {
-				data, _ = reports.ExportToCSV(reportData)
-			} else {
-				data, _ = reports.ExportToPDF(reportData)
-			}
-			// Best effort save
-			_, _ = rh.repo.SaveReport(ctx, report.CustomerID, report.Month, report.Year, report.CSVData, report.PDFData, report.SentToEmails)
+	// Always dynamically generate to ensure fresh data
+	reportData, err := rh.generator.GenerateMonthlyReport(ctx, report.CustomerID, report.Month, report.Year)
+	if err == nil {
+		if format == "csv" {
+			data, _ = reports.ExportToCSV(reportData)
+			report.CSVData = data
+		} else {
+			data, _ = reports.ExportToPDF(reportData)
+			report.PDFData = data
 		}
+		// Best effort save
+		_, _ = rh.repo.SaveReport(ctx, report.CustomerID, report.Month, report.Year, report.CSVData, report.PDFData, report.SentToEmails)
+	}
 
-		if len(data) == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Report file not found or failed to generate"})
-			return
-		}
+	if len(data) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Report file not found or failed to generate"})
+		return
 	}
 
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
