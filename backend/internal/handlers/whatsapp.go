@@ -388,6 +388,59 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 
 	// For group messages, check if the bot is mentioned
 	if isGroup {
+		// Parse mentions from raw WAHA payload
+		var rawMsg map[string]interface{}
+		_ = json.Unmarshal(rawPayloadData, &rawMsg)
+		var mentionedJids []string
+
+		// WAHA Core / generic
+		if mentions, ok := rawMsg["mentionedIds"].([]interface{}); ok {
+			for _, m := range mentions {
+				if s, ok := m.(string); ok {
+					mentionedJids = append(mentionedJids, normalizeWhatsAppID(s))
+				}
+			}
+		}
+
+		// WAHA Plus / Baileys
+		if _data, ok := rawMsg["_data"].(map[string]interface{}); ok {
+			if message, ok := _data["message"].(map[string]interface{}); ok {
+				for _, v := range message {
+					if msgType, ok := v.(map[string]interface{}); ok {
+						if contextInfo, ok := msgType["contextInfo"].(map[string]interface{}); ok {
+							if mentionedJid, ok := contextInfo["mentionedJid"].([]interface{}); ok {
+								for _, m := range mentionedJid {
+									if s, ok := m.(string); ok {
+										mentionedJids = append(mentionedJids, normalizeWhatsAppID(s))
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			if mentionedJidList, ok := _data["mentionedJidList"].([]interface{}); ok {
+				for _, m := range mentionedJidList {
+					if s, ok := m.(string); ok {
+						mentionedJids = append(mentionedJids, normalizeWhatsAppID(s))
+					}
+				}
+			}
+		}
+
+		// Check root mentions array
+		if mentions, ok := rawMsg["mentions"].([]interface{}); ok {
+			for _, m := range mentions {
+				if mStr, ok := m.(string); ok {
+					mentionedJids = append(mentionedJids, normalizeWhatsAppID(mStr))
+				} else if mObj, ok := m.(map[string]interface{}); ok {
+					if id, ok := mObj["id"].(string); ok {
+						mentionedJids = append(mentionedJids, normalizeWhatsAppID(id))
+					}
+				}
+			}
+		}
+
 		var session models.WhatsAppSession
 		if err := h.db.First(&session, "session_name = ?", payload.Session).Error; err == nil {
 			botNum := normalizeWhatsAppID(session.PhoneNumber)
@@ -399,13 +452,35 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 				botLid = normalizeWhatsAppID(wahaSession.Me.ID)
 			}
 
-			log.Printf("[WhatsApp] bot mention candidates session=%s botNum=%s botLid=%s", payload.Session, botNum, botLid)
+			log.Printf("[WhatsApp] bot mention candidates session=%s botNum=%s botLid=%s mentionedJids=%v", payload.Session, botNum, botLid, mentionedJids)
 
 			if botNum != "" && containsMention(msgEvent.Body, botNum) {
 				isDirectedToBot = true
 			}
 			if !isDirectedToBot && botLid != "" && containsMention(msgEvent.Body, botLid) {
 				isDirectedToBot = true
+			}
+
+			// Check if bot's number is in the explicitly mentioned JIDs from metadata
+			if !isDirectedToBot {
+				for _, jid := range mentionedJids {
+					if jid == botNum || jid == botLid {
+						isDirectedToBot = true
+						log.Printf("[WhatsApp] Directed to bot via metadata mentionedJids!")
+						break
+					}
+				}
+			}
+			
+			// VERY AGGRESSIVE FALLBACK for LID mismatch:
+			// If the user's message starts with an @mention, AND the bot is the ONLY active handler, 
+			// and no other specific mention logic passed, we might still want to catch it if they say "@... tolong buatkan tiket"
+			if !isDirectedToBot {
+				reLidBotCommand := regexp.MustCompile(`(?i)^\s*@\d{14,16}\s*(?:bro|min|helpdesk|bot|tolong)?\s*buat(?:in|kan)\s*tiket`)
+				if reLidBotCommand.MatchString(msgEvent.Body) {
+					isDirectedToBot = true
+					log.Printf("[WhatsApp] Detected probable LID bot command via regex: %s", msgEvent.Body)
+				}
 			}
 		}
 
