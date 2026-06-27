@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"ai-desk/internal/email"
 	"ai-desk/internal/models"
 	"gorm.io/gorm"
 )
@@ -14,15 +15,40 @@ import (
 type ActionHandler struct {
 	db            *gorm.DB
 	messageSender *MessageSender
+	smtpClient    *email.SMTPClient
 	wahaClient    *WahaClient
 }
 
-func NewActionHandler(db *gorm.DB, messageSender *MessageSender, wahaClient *WahaClient) *ActionHandler {
+func NewActionHandler(db *gorm.DB, messageSender *MessageSender, smtpClient *email.SMTPClient, wahaClient *WahaClient) *ActionHandler {
 	return &ActionHandler{
 		db:            db,
 		messageSender: messageSender,
+		smtpClient:    smtpClient,
 		wahaClient:    wahaClient,
 	}
+}
+
+func (h *ActionHandler) findEngineerWAPhone(senderPhone, replyTo string, isGroup bool) (*models.EngineerWAPhone, error) {
+	norm := normalizeWhatsAppID(senderPhone)
+	var engineerPhone models.EngineerWAPhone
+
+	if err := h.db.Where("is_active = ?", true).
+		Where("phone_number = ? OR phone_number = ? OR phone_number = ?", senderPhone, norm, formatPhone(norm)).
+		First(&engineerPhone).Error; err == nil {
+		return &engineerPhone, nil
+	}
+
+	// Fallback: match engineer by whatsapp_number field on the engineers table
+	var engineer models.Engineer
+	if err := h.db.Where("is_active = ? AND (whatsapp_number = ? OR whatsapp_number = ? OR whatsapp_number = ?)",
+		true, senderPhone, norm, formatPhone(norm)).First(&engineer).Error; err == nil {
+		if err2 := h.db.Where("engineer_id = ? AND is_active = ?", engineer.ID, true).
+			First(&engineerPhone).Error; err2 == nil {
+			return &engineerPhone, nil
+		}
+	}
+
+	return nil, fmt.Errorf("engineer phone not found")
 }
 
 func summarizeWhatsAppTicket(content string) (string, string) {
@@ -260,75 +286,12 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 func (h *ActionHandler) HandleTicketUpdate(sessionName, senderPhone, replyTo string, isGroup bool, ticketID, content string) error {
 	// Verify sender is engineer. Accept multiple formats: raw webhook value,
 	// normalized numeric id (no suffix), or formatted chat id with @c.us.
-	norm := normalizeWhatsAppID(senderPhone)
-	var engineerPhone models.EngineerWAPhone
-	found := false
-
-	// 1) Try exact matches in engineer_wa_phones table
-	if err := h.db.Where("phone_number = ? OR phone_number = ? OR phone_number = ?", senderPhone, norm, formatPhone(norm)).First(&engineerPhone).Error; err == nil {
-		found = true
+	engineerPhone, err := h.findEngineerWAPhone(senderPhone, replyTo, isGroup)
+	if err != nil {
+		h.messageSender.SendMessage(sessionName, replyTo,
+			"Anda tidak memiliki akses untuk mengubah tiket ini.")
+		return err
 	}
-
-	// 2) Fallback: if message is from a group, match by group mapping
-	if !found && isGroup && replyTo != "" {
-		if err := h.db.Where("group_id = ?", replyTo).First(&engineerPhone).Error; err == nil {
-			found = true
-		}
-	}
-
-	// 3) Fallback: match engineers table whatsapp_number, then get an EngineerWAPhone record
-	if !found {
-		var eng models.Engineer
-		if err := h.db.Where("whatsapp_number = ? OR whatsapp_number = ? OR whatsapp_number = ?", senderPhone, norm, formatPhone(norm)).First(&eng).Error; err == nil {
-			if err2 := h.db.Where("engineer_id = ?", eng.ID).First(&engineerPhone).Error; err2 == nil {
-				found = true
-			}
-		}
-	}
-
-	if !found {
-		// Heuristic fallback: match by last 7 digits of the normalized phone
-		lastN := func(s string, n int) string {
-			if len(s) <= n {
-				return s
-			}
-			return s[len(s)-n:]
-		}
-		var phones []models.EngineerWAPhone
-		if err := h.db.Find(&phones).Error; err == nil {
-			target := lastN(norm, 7)
-			for _, p := range phones {
-				np := normalizeWhatsAppID(p.PhoneNumber)
-				if np != "" && lastN(np, 7) == target {
-					engineerPhone = p
-					found = true
-					break
-				}
-			}
-		}
-	}
-
-	if !found {
-		// If the message is from a designated support group, allow the action
-		// even if we couldn't match an exact engineer phone. This supports
-		// engineers who post from group participant IDs that don't map to stored phones.
-		if isGroup {
-			var waGroup models.CustomerWAGroup
-			if err := h.db.Where("group_id = ?", replyTo).First(&waGroup).Error; err == nil && waGroup.IsSupport {
-				// proceed without an engineer mapping (engineerPhone remains zero-value)
-				log.Printf("[WhatsApp] support group override: allowing update from group %s", replyTo)
-			} else {
-				h.messageSender.SendMessage(sessionName, replyTo,
-					"Anda tidak memiliki akses untuk mengubah tiket ini.")
-				return fmt.Errorf("engineer phone not found")
-			}
-		} else {
-			h.messageSender.SendMessage(sessionName, replyTo,
-				"Anda tidak memiliki akses untuk mengubah tiket ini.")
-			return fmt.Errorf("engineer phone not found")
-		}
-	}
-
 
 	// Get ticket
 	var ticket models.Ticket
@@ -344,7 +307,7 @@ func (h *ActionHandler) HandleTicketUpdate(sessionName, senderPhone, replyTo str
 
 	// Add update/comment
 	var engID *uint
-	if found && engineerPhone.EngineerID != 0 {
+	if engineerPhone != nil && engineerPhone.EngineerID != 0 {
 		engID = &engineerPhone.EngineerID
 	}
 	update := models.Update{
@@ -371,63 +334,11 @@ func (h *ActionHandler) HandleTicketUpdate(sessionName, senderPhone, replyTo str
 
 func (h *ActionHandler) HandleTicketClose(sessionName, senderPhone, replyTo string, isGroup bool, ticketID, content string) error {
 	// Verify sender is engineer. Accept multiple formats like in updates.
-	norm := normalizeWhatsAppID(senderPhone)
-	var engineerPhone models.EngineerWAPhone
-	found2 := false
-
-	if err := h.db.Where("phone_number = ? OR phone_number = ? OR phone_number = ?", senderPhone, norm, formatPhone(norm)).First(&engineerPhone).Error; err == nil {
-		found2 = true
-	}
-	if !found2 && isGroup && replyTo != "" {
-		if err := h.db.Where("group_id = ?", replyTo).First(&engineerPhone).Error; err == nil {
-			found2 = true
-		}
-	}
-	if !found2 {
-		var eng models.Engineer
-		if err := h.db.Where("whatsapp_number = ? OR whatsapp_number = ? OR whatsapp_number = ?", senderPhone, norm, formatPhone(norm)).First(&eng).Error; err == nil {
-			if err2 := h.db.Where("engineer_id = ?", eng.ID).First(&engineerPhone).Error; err2 == nil {
-				found2 = true
-			}
-		}
-	}
-	if !found2 {
-		// Heuristic fallback: match by last 7 digits of the normalized phone
-		lastN := func(s string, n int) string {
-			if len(s) <= n {
-				return s
-			}
-			return s[len(s)-n:]
-		}
-		var phones []models.EngineerWAPhone
-		if err := h.db.Find(&phones).Error; err == nil {
-			target := lastN(norm, 7)
-			for _, p := range phones {
-				np := normalizeWhatsAppID(p.PhoneNumber)
-				if np != "" && lastN(np, 7) == target {
-					engineerPhone = p
-					found2 = true
-					break
-				}
-			}
-		}
-	}
-
-	if !found2 {
-		if isGroup {
-			var waGroup models.CustomerWAGroup
-			if err := h.db.Where("group_id = ?", replyTo).First(&waGroup).Error; err == nil && waGroup.IsSupport {
-				log.Printf("[WhatsApp] support group override: allowing close from group %s", replyTo)
-			} else {
-				h.messageSender.SendMessage(sessionName, replyTo,
-					"Anda tidak memiliki akses untuk menutup tiket ini.")
-				return fmt.Errorf("engineer phone not found")
-			}
-		} else {
-			h.messageSender.SendMessage(sessionName, replyTo,
-				"Anda tidak memiliki akses untuk menutup tiket ini.")
-			return fmt.Errorf("engineer phone not found")
-		}
+	engineerPhone, err := h.findEngineerWAPhone(senderPhone, replyTo, isGroup)
+	if err != nil {
+		h.messageSender.SendMessage(sessionName, replyTo,
+			"Anda tidak memiliki akses untuk menutup tiket ini.")
+		return err
 	}
 
 	// Get ticket
@@ -438,15 +349,15 @@ func (h *ActionHandler) HandleTicketClose(sessionName, senderPhone, replyTo stri
 		return err
 	}
 
-	// Update status to RESOLVED
+	// Update status to CLOSED
 	now := time.Now()
-	ticket.Status = "RESOLVED"
+	ticket.Status = "CLOSED"
 	ticket.ResolvedAt = &now
 	h.db.Save(&ticket)
 
 	// Add update/comment
 	var engID2 *uint
-	if found2 && engineerPhone.EngineerID != 0 {
+	if engineerPhone != nil && engineerPhone.EngineerID != 0 {
 		engID2 = &engineerPhone.EngineerID
 	}
 	update := models.Update{
@@ -465,6 +376,28 @@ func (h *ActionHandler) HandleTicketClose(sessionName, senderPhone, replyTo stri
 	// Notify original ticket creator if not the same chat
 	if !isGroup && ticket.WhatsappFrom != "" && ticket.WhatsappFrom != replyTo {
 		h.messageSender.SendMessage(sessionName, formatPhone(ticket.WhatsappFrom), customerMsg)
+	}
+
+	if ticket.EmailFrom != "" && h.smtpClient != nil {
+		subject := fmt.Sprintf("[AI-DESK] Tiket %s Telah Ditutup", ticket.TicketNumber)
+		htmlBody := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6; font-size: 14px; padding: 10px;">
+	<div>
+		<p>Yth. Pelanggan,</p>
+		<p>Tiket dukungan Anda dengan ID <strong>%s</strong> telah ditutup.</p>
+		<p>Resolusi: %s</p>
+		<p>Terima kasih telah menggunakan layanan kami.</p>
+		<br>
+		<p>Salam,<br>Tim Support</p>
+	</div>
+</body>
+</html>`, ticket.TicketNumber, content)
+		go func(emailTo, subject, body string) {
+			if err := h.smtpClient.SendHTMLEmail(emailTo, "", subject, body); err != nil {
+				log.Printf("Failed to send ticket closure email to %s: %v", emailTo, err)
+			}
+		}(ticket.EmailFrom, subject, htmlBody)
 	}
 
 	log.Printf("Ticket %s closed by %s", ticket.TicketNumber, senderPhone)

@@ -191,7 +191,7 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 	pdf.SetFillColor(colorHeaderRGB, colorHeaderG, colorHeaderB)
 	pdf.SetTextColor(255, 255, 255)
 
-	cell(pdf, 12, headerHeight, "ID", "1", 0, "C", true)
+	cell(pdf, 20, headerHeight, "Ticket", "1", 0, "C", true)
 	cell(pdf, 35, headerHeight, "Title", "1", 0, "L", true)
 	cell(pdf, 20, headerHeight, "Created", "1", 0, "C", true)
 	cell(pdf, 20, headerHeight, "Status", "1", 0, "C", true)
@@ -233,7 +233,7 @@ func ExportToPDF(report *models.ReportData) ([]byte, error) {
 			pdf.SetFillColor(255, 255, 255)
 		}
 
-		cell(pdf, 12, cellHeight, fmt.Sprintf("%d", ticket.ID), "1", 0, "C", true)
+		cell(pdf, 20, cellHeight, ticket.TicketNumber, "1", 0, "C", true)
 		titleLen := len(ticket.Title)
 		if titleLen > 25 {
 			titleLen = 25

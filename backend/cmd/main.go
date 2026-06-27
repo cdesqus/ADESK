@@ -108,11 +108,6 @@ func main() {
 	aiClient := ai.NewOpenAIClient(cfg.OpenAIKey, semanticCache)
 	wahaClient := whatsapp.NewWahaClient(cfg.WahaAPIURL, cfg.WahaAPIKey)
 	messageSender := whatsapp.NewMessageSender(wahaClient, database)
-	actionHandler := whatsapp.NewActionHandler(database, messageSender, wahaClient)
-	whatsappHandler := handlers.NewWhatsAppHandler(database, wahaClient, messageSender, actionHandler, aiClient)
-
-	// Start daily WhatsApp summary scheduler (e.g. at 08:00 AM)
-	whatsapp.StartDailyScheduler(database, messageSender, 8, 0)
 
 	// Read email settings from SystemSetting to override env values BEFORE creating SMTP client
 	var setting models.SystemSetting
@@ -159,9 +154,20 @@ func main() {
 		smtpUser, // Use email user as from address
 		cfg.EmailFromName,
 	)
+
+	// Initialize WhatsApp components
+	aiClient := ai.NewOpenAIClient(cfg.OpenAIKey, semanticCache)
+	wahaClient := whatsapp.NewWahaClient(cfg.WahaAPIURL, cfg.WahaAPIKey)
+	messageSender := whatsapp.NewMessageSender(wahaClient, database)
+	actionHandler := whatsapp.NewActionHandler(database, messageSender, smtpClient, wahaClient)
+	whatsappHandler := handlers.NewWhatsAppHandler(database, wahaClient, messageSender, actionHandler, aiClient)
+
 	emailHandler := handlers.NewEmailHandler(database, domainMatcher, smtpClient, cfg, messageSender)
 	ticketHandler := handlers.NewTicketHandler(database, smtpClient)
 	updateHandler := handlers.NewUpdateHandler(database, smtpClient)
+
+	// Start daily WhatsApp summary scheduler (e.g. at 08:00 AM)
+	whatsapp.StartDailyScheduler(database, messageSender, 8, 0)
 
 
 	// Initialize and start email poller

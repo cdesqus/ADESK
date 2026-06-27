@@ -42,6 +42,7 @@ func (rg *ReportGenerator) GenerateMonthlyReport(ctx context.Context, customerID
 	var tickets []models.Ticket
 	if err := rg.db.WithContext(ctx).
 		Where("customer_id = ? AND created_at >= ? AND created_at < ?", customerID, startDate, endDate).
+		Preload("Engineer").
 		Order("created_at DESC").
 		Find(&tickets).Error; err != nil {
 		return nil, fmt.Errorf("failed to fetch tickets: %w", err)
@@ -99,11 +100,18 @@ func (rg *ReportGenerator) GenerateMonthlyReport(ctx context.Context, customerID
 		// Track engineer stats
 		if ticket.EngineerID != nil {
 			if _, exists := engineerMap[*ticket.EngineerID]; !exists {
-				var engineer models.User
-				rg.db.WithContext(ctx).First(&engineer, *ticket.EngineerID)
+				name := "Unknown Engineer"
+				if ticket.Engineer != nil && ticket.Engineer.Name != "" {
+					name = ticket.Engineer.Name
+				} else {
+					var engineer models.Engineer
+					if err := rg.db.WithContext(ctx).First(&engineer, *ticket.EngineerID).Error; err == nil {
+						name = engineer.Name
+					}
+				}
 				engineerMap[*ticket.EngineerID] = &engineerStats{
 					ID:   *ticket.EngineerID,
-					Name: engineer.Email, // User model uses Email as identity
+					Name: name,
 				}
 			}
 			engineerMap[*ticket.EngineerID].Handled++
@@ -115,6 +123,7 @@ func (rg *ReportGenerator) GenerateMonthlyReport(ctx context.Context, customerID
 
 		// Build ticket summary
 		summary := models.TicketSummary{
+			TicketNumber:  ticket.TicketNumber,
 			ID:            ticket.ID,
 			Title:         ticket.Title,
 			CreatedAt:     ticket.CreatedAt,
@@ -124,7 +133,7 @@ func (rg *ReportGenerator) GenerateMonthlyReport(ctx context.Context, customerID
 			Source:        ticket.Source,
 		}
 		if ticket.Engineer != nil {
-			summary.Engineer = ticket.Engineer.Email // User model uses Email
+			summary.Engineer = ticket.Engineer.Name
 		}
 		ticketsList = append(ticketsList, summary)
 	}

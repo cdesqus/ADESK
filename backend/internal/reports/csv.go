@@ -132,7 +132,7 @@ func ExportToCSV(report *models.ReportData) ([]byte, error) {
 
 	row = 3
 	for _, ticket := range report.TicketsList {
-		f.SetCellValue(ticketsSheet, fmt.Sprintf("A%d", row), strconv.Itoa(int(ticket.ID)))
+		f.SetCellValue(ticketsSheet, fmt.Sprintf("A%d", row), ticket.TicketNumber)
 		f.SetCellValue(ticketsSheet, fmt.Sprintf("B%d", row), ticket.Title)
 		f.SetCellValue(ticketsSheet, fmt.Sprintf("C%d", row), ticket.CreatedAt.Format("2006-01-02 15:04"))
 		if ticket.ResolvedAt != nil {

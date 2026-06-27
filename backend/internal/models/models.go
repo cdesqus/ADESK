@@ -257,8 +257,7 @@ type EngineerStat struct {
 }
 
 // TicketSummary represents a ticket in report form
-type TicketSummary struct {
-	ID           uint       `json:"id"`
+type TicketSummary struct {	TicketNumber string     `json:"ticket_number"`	ID           uint       `json:"id"`
 	Title        string     `json:"title"`
 	CreatedAt    time.Time  `json:"created_at"`
 	ResolvedAt   *time.Time `json:"resolved_at"`
