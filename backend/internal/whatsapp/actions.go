@@ -262,11 +262,58 @@ func (h *ActionHandler) HandleTicketUpdate(sessionName, senderPhone, replyTo str
 	// normalized numeric id (no suffix), or formatted chat id with @c.us.
 	norm := normalizeWhatsAppID(senderPhone)
 	var engineerPhone models.EngineerWAPhone
-	if err := h.db.Where("phone_number = ? OR phone_number = ? OR phone_number = ?", senderPhone, norm, formatPhone(norm)).First(&engineerPhone).Error; err != nil {
+	found := false
+
+	// 1) Try exact matches in engineer_wa_phones table
+	if err := h.db.Where("phone_number = ? OR phone_number = ? OR phone_number = ?", senderPhone, norm, formatPhone(norm)).First(&engineerPhone).Error; err == nil {
+		found = true
+	}
+
+	// 2) Fallback: if message is from a group, match by group mapping
+	if !found && isGroup && replyTo != "" {
+		if err := h.db.Where("group_id = ?", replyTo).First(&engineerPhone).Error; err == nil {
+			found = true
+		}
+	}
+
+	// 3) Fallback: match engineers table whatsapp_number, then get an EngineerWAPhone record
+	if !found {
+		var eng models.Engineer
+		if err := h.db.Where("whatsapp_number = ? OR whatsapp_number = ? OR whatsapp_number = ?", senderPhone, norm, formatPhone(norm)).First(&eng).Error; err == nil {
+			if err2 := h.db.Where("engineer_id = ?", eng.ID).First(&engineerPhone).Error; err2 == nil {
+				found = true
+			}
+		}
+	}
+
+	if !found {
+		// Heuristic fallback: match by last 7 digits of the normalized phone
+		lastN := func(s string, n int) string {
+			if len(s) <= n {
+				return s
+			}
+			return s[len(s)-n:]
+		}
+		var phones []models.EngineerWAPhone
+		if err := h.db.Find(&phones).Error; err == nil {
+			target := lastN(norm, 7)
+			for _, p := range phones {
+				np := normalizeWhatsAppID(p.PhoneNumber)
+				if np != "" && lastN(np, 7) == target {
+					engineerPhone = p
+					found = true
+					break
+				}
+			}
+		}
+	}
+
+	if !found {
 		h.messageSender.SendMessage(sessionName, replyTo,
 			"Anda tidak memiliki akses untuk mengubah tiket ini.")
 		return fmt.Errorf("engineer phone not found")
 	}
+
 
 	// Get ticket
 	var ticket models.Ticket
@@ -307,7 +354,47 @@ func (h *ActionHandler) HandleTicketClose(sessionName, senderPhone, replyTo stri
 	// Verify sender is engineer. Accept multiple formats like in updates.
 	norm := normalizeWhatsAppID(senderPhone)
 	var engineerPhone models.EngineerWAPhone
-	if err := h.db.Where("phone_number = ? OR phone_number = ? OR phone_number = ?", senderPhone, norm, formatPhone(norm)).First(&engineerPhone).Error; err != nil {
+	found2 := false
+
+	if err := h.db.Where("phone_number = ? OR phone_number = ? OR phone_number = ?", senderPhone, norm, formatPhone(norm)).First(&engineerPhone).Error; err == nil {
+		found2 = true
+	}
+	if !found2 && isGroup && replyTo != "" {
+		if err := h.db.Where("group_id = ?", replyTo).First(&engineerPhone).Error; err == nil {
+			found2 = true
+		}
+	}
+	if !found2 {
+		var eng models.Engineer
+		if err := h.db.Where("whatsapp_number = ? OR whatsapp_number = ? OR whatsapp_number = ?", senderPhone, norm, formatPhone(norm)).First(&eng).Error; err == nil {
+			if err2 := h.db.Where("engineer_id = ?", eng.ID).First(&engineerPhone).Error; err2 == nil {
+				found2 = true
+			}
+		}
+	}
+	if !found2 {
+		// Heuristic fallback: match by last 7 digits of the normalized phone
+		lastN := func(s string, n int) string {
+			if len(s) <= n {
+				return s
+			}
+			return s[len(s)-n:]
+		}
+		var phones []models.EngineerWAPhone
+		if err := h.db.Find(&phones).Error; err == nil {
+			target := lastN(norm, 7)
+			for _, p := range phones {
+				np := normalizeWhatsAppID(p.PhoneNumber)
+				if np != "" && lastN(np, 7) == target {
+					engineerPhone = p
+					found2 = true
+					break
+				}
+			}
+		}
+	}
+
+	if !found2 {
 		h.messageSender.SendMessage(sessionName, replyTo,
 			"Anda tidak memiliki akses untuk menutup tiket ini.")
 		return fmt.Errorf("engineer phone not found")
