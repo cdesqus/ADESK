@@ -524,21 +524,39 @@ func (h *ActionHandler) HandleStatusCheck(sessionName, senderPhone, replyTo stri
 }
 
 func (h *ActionHandler) assignEngineer(customerID uint) *models.Engineer {
-	var engineer models.Engineer
+	var engineers []models.Engineer
 
-	// First try to assign an active engineer for this customer
+	// First try to get active engineers for this customer
 	if err := h.db.Where("customer_id = ? AND is_active = ?", customerID, true).
-		Order("id").First(&engineer).Error; err == nil {
-		return &engineer
+		Order("id").Find(&engineers).Error; err != nil || len(engineers) == 0 {
+		// Fallback to any active engineer
+		if err := h.db.Where("is_active = ?", true).
+			Order("id").Find(&engineers).Error; err != nil || len(engineers) == 0 {
+			return nil
+		}
 	}
 
-	// Fallback to any active engineer if no customer-specific engineer exists
-	if err := h.db.Where("is_active = ?", true).
-		Order("id").First(&engineer).Error; err == nil {
-		return &engineer
+	if len(engineers) == 1 {
+		return &engineers[0]
 	}
 
-	return nil
+	// Round-robin: find engineer with fewest open tickets
+	var bestEngineer *models.Engineer
+	minTickets := int64(999999)
+
+	for i := range engineers {
+		var count int64
+		h.db.Model(&models.Ticket{}).
+			Where("engineer_id = ? AND status IN ?", engineers[i].ID, []string{"OPEN", "IN_PROGRESS"}).
+			Count(&count)
+
+		if count < minTickets {
+			minTickets = count
+			bestEngineer = &engineers[i]
+		}
+	}
+
+	return bestEngineer
 }
 
 // formatPhone formats a phone number for WhatsApp chatId
