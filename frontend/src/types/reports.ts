@@ -27,6 +27,9 @@ export interface TicketSummary {
   priority: string;
   createdAt: string;
   resolvedAt?: string;
+  ticketNumber?: string;
+  timeToResolve?: number;
+  engineer?: string;
 }
 
 export interface ReportData {
