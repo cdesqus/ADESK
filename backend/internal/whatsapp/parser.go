@@ -38,21 +38,21 @@ func ParseMessage(body string, isDirectedToBot bool) *ParsedAction {
 	cleanBody = strings.TrimSpace(cleanBody)
 
 	// Check for ticket progress update: "2026-06-001 progress: ..." or "IDE-2606-14 update: ..."
-	if matched, _ := regexp.MatchString(`(?i)(?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3})\s+(progress|update):`, cleanBody); matched {
-		re := regexp.MustCompile(`(?i)((?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3}))\s+(progress|update):\s*(.+)`)
+	if matched, _ := regexp.MatchString(`(?i)(?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3})\s+(?:progress|update)\s*:`, cleanBody); matched {
+		re := regexp.MustCompile(`(?i)((?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3}))\s+(?:progress|update)\s*:\s*(.+)`)
 		matches := re.FindStringSubmatch(cleanBody)
 		if len(matches) > 2 {
 			return &ParsedAction{
 				ActionType: "update",
 				TicketID:   matches[1],
-				Content:    strings.TrimSpace(matches[3]),
+				Content:    strings.TrimSpace(matches[2]),
 			}
 		}
 	}
 
 	// Check for close ticket: "2026-06-001 close: ..." or "IDE-2606-14 close: ..."
-	if matched, _ := regexp.MatchString(`(?i)(?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3})\s+close:`, cleanBody); matched {
-		re := regexp.MustCompile(`(?i)((?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3}))\s+close:\s*(.+)`)
+	if matched, _ := regexp.MatchString(`(?i)(?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3})\s+close\s*:`, cleanBody); matched {
+		re := regexp.MustCompile(`(?i)((?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3}))\s+close\s*:\s*(.+)`)
 		matches := re.FindStringSubmatch(cleanBody)
 		if len(matches) > 2 {
 			return &ParsedAction{
