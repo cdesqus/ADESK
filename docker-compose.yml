@@ -37,7 +37,7 @@ services:
       - ai-desk-network
 
   waha:
-    image: devlikeapro/waha-plus:latest
+    image: devlikeapro/waha:latest
     container_name: ai-desk-waha
     environment:
       - WAHA_WEBHOOK_URL=http://backend:8080/api/whatsapp/webhook
