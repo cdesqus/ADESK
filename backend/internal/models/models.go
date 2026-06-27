@@ -257,14 +257,16 @@ type EngineerStat struct {
 }
 
 // TicketSummary represents a ticket in report form
-type TicketSummary struct {	TicketNumber string     `json:"ticket_number"`	ID           uint       `json:"id"`
-	Title        string     `json:"title"`
-	CreatedAt    time.Time  `json:"created_at"`
-	ResolvedAt   *time.Time `json:"resolved_at"`
-	TimeToResolve float64   `json:"time_to_resolve"` // hours
-	Status       string     `json:"status"`
-	Engineer     string     `json:"engineer"`
-	Source       string     `json:"source"`
+type TicketSummary struct {
+	TicketNumber  string     `json:"ticket_number"`
+	ID            uint       `json:"id"`
+	Title         string     `json:"title"`
+	CreatedAt     time.Time  `json:"created_at"`
+	ResolvedAt    *time.Time `json:"resolved_at"`
+	TimeToResolve float64    `json:"time_to_resolve"` // hours
+	Status        string     `json:"status"`
+	Engineer      string     `json:"engineer"`
+	Source        string     `json:"source"`
 }
 
 // ReportData contains all data for rendering a report
