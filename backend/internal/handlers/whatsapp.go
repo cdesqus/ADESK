@@ -473,13 +473,18 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 			}
 			
 			// VERY AGGRESSIVE FALLBACK for LID mismatch:
-			// If the user's message starts with an @mention, AND the bot is the ONLY active handler, 
-			// and no other specific mention logic passed, we might still want to catch it if they say "@... tolong buatkan tiket"
-			if !isDirectedToBot {
-				reLidBotCommand := regexp.MustCompile(`(?i)^\s*@\d{14,16}\s*(?:bro|min|helpdesk|bot|tolong)?\s*buat(?:in|kan)\s*tiket`)
-				if reLidBotCommand.MatchString(msgEvent.Body) {
-					isDirectedToBot = true
-					log.Printf("[WhatsApp] Detected probable LID bot command via regex: %s", msgEvent.Body)
+			// Waha does not always expose the bot's LID. If there is a mention of an LID,
+			// and the message contains ticket-related keywords, assume it's the bot.
+			if !isDirectedToBot && len(mentionedJids) > 0 {
+				for _, jid := range mentionedJids {
+					if len(jid) >= 14 { // LIDs are usually 15 digits
+						matched, _ := regexp.MatchString(`(?i)(?:bot|helpdesk|min|admin|tolong|bantu|buat(?:in|kan)|tiket|update|progress|status|close|reopen)`, msgEvent.Body)
+						if matched {
+							isDirectedToBot = true
+							log.Printf("[WhatsApp] Assumed LID %s is bot due to command context: %s", jid, msgEvent.Body)
+							break
+						}
+					}
 				}
 			}
 		}

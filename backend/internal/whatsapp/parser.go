@@ -90,13 +90,13 @@ func ParseMessage(body string, isDirectedToBot bool) *ParsedAction {
 	}
 
 	// Check for explicit create ticket pattern: "tolong buatin tiket ..."
-	if matched, _ := regexp.MatchString(`(?i)tolong\s+buat(?:in|kan)\s+tiket`, cleanBody); matched {
-		re := regexp.MustCompile(`(?i)tolong\s+buat(?:in|kan)\s+tiket\s*(.+)`)
+	if matched, _ := regexp.MatchString(`(?i)(?:tolong|bantu)?\s*buat(?:in|kan)\s+tiket`, cleanBody); matched {
+		re := regexp.MustCompile(`(?i)(?:tolong|bantu)?\s*buat(?:in|kan)\s+tiket\s*(.*)`)
 		matches := re.FindStringSubmatch(cleanBody)
-		if len(matches) > 1 {
+		if len(matches) > 0 {
 			return &ParsedAction{
 				ActionType: "create_ticket",
-				Content:    strings.TrimSpace(matches[1]),
+				Content:    strings.TrimSpace(matches[len(matches)-1]),
 			}
 		}
 	}
