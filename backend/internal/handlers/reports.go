@@ -198,7 +198,7 @@ func (rh *ReportHandler) DownloadReport(c *gin.Context) {
 				data, _ = reports.ExportToPDF(reportData)
 			}
 			// Best effort save
-			_ = rh.repo.SaveReport(ctx, report.CustomerID, report.Month, report.Year, report.CSVData, report.PDFData, report.SentToEmails)
+			_, _ = rh.repo.SaveReport(ctx, report.CustomerID, report.Month, report.Year, report.CSVData, report.PDFData, report.SentToEmails)
 		}
 
 		if len(data) == 0 {
