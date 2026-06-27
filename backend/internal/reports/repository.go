@@ -82,7 +82,7 @@ func (rr *ReportRepository) ListReports(ctx context.Context, customerID *uint, l
 	}
 
 	// Fetch paginated results
-	if err := query.Order("created_at DESC").Limit(limit).Offset(offset).Find(&reports).Error; err != nil {
+	if err := query.Preload("Customer").Order("created_at DESC").Limit(limit).Offset(offset).Find(&reports).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to fetch reports: %w", err)
 	}
 

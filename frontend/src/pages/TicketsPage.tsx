@@ -232,7 +232,7 @@ export const TicketsPage: React.FC = () => {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left">
+                  <th className="px-6 py-3 text-left w-1">
                     <input 
                       type="checkbox" 
                       className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
@@ -240,19 +240,19 @@ export const TicketsPage: React.FC = () => {
                       onChange={handleSelectAll}
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 w-1 whitespace-nowrap">ID</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Customer</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Priority</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Created</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900">Action</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 w-1 whitespace-nowrap">Customer</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 w-1 whitespace-nowrap">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 w-1 whitespace-nowrap">Priority</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 w-1 whitespace-nowrap">Created</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 w-1 whitespace-nowrap">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {tickets.map((ticket) => (
                   <tr key={ticket.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 w-1">
                       <input 
                         type="checkbox" 
                         className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
@@ -260,31 +260,31 @@ export const TicketsPage: React.FC = () => {
                         onChange={() => handleSelectTicket(ticket.id.toString())}
                       />
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-primary-700">
+                    <td className="px-6 py-4 text-sm font-medium text-primary-700 whitespace-nowrap w-1">
                       #{ticket.ticket_number || ticket.id}
                     </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-medium text-gray-900 truncate max-w-xs">
+                    <td className="px-6 py-4 w-full max-w-[200px]">
+                      <p className="text-sm font-medium text-gray-900 truncate">
                         {ticket.title}
                       </p>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap w-1">
                       {ticket.customer?.name || 'N/A'}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap w-1">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${(statusColors[ticket.status.toLowerCase() as TicketStatus] || statusColors.open).bg} ${(statusColors[ticket.status.toLowerCase() as TicketStatus] || statusColors.open).text}`}>
                         {ticket.status.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap w-1">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${(priorityColors[ticket.priority.toLowerCase() as TicketPriority] || priorityColors.medium).bg} ${(priorityColors[ticket.priority.toLowerCase() as TicketPriority] || priorityColors.medium).text}`}>
                         {ticket.priority}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap w-1">
                       {formatDistanceToNow(new Date(ticket.createdAt || (ticket as any).created_at), { addSuffix: true })}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap w-1">
                       <div className="flex gap-2">
                         <Link to={`/tickets/${ticket.id}`}>
                           <Button size="sm" variant="ghost">

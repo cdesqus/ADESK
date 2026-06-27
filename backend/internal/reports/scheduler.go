@@ -176,5 +176,29 @@ func (rs *ReportScheduler) generateAndSendReport(ctx context.Context, customer m
 
 // GenerateReportOnDemand generates a report immediately without waiting for schedule
 func (rs *ReportScheduler) GenerateReportOnDemand(ctx context.Context, customerID uint, month, year int) (*models.ReportData, error) {
-	return rs.generator.GenerateMonthlyReport(ctx, customerID, month, year)
+	// Generate report data
+	reportData, err := rs.generator.GenerateMonthlyReport(ctx, customerID, month, year)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate report: %w", err)
+	}
+
+	// Export to CSV
+	csvBytes, err := ExportToCSV(reportData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to export CSV: %w", err)
+	}
+
+	// Export to PDF
+	pdfBytes, err := ExportToPDF(reportData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to export PDF: %w", err)
+	}
+
+	// Save to database
+	_, err = rs.repo.SaveReport(ctx, customerID, month, year, csvBytes, pdfBytes, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save report: %w", err)
+	}
+
+	return reportData, nil
 }

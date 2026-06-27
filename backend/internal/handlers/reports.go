@@ -41,6 +41,7 @@ type GenerateReportRequest struct {
 type ReportListResponse struct {
 	ID           string     `json:"id"`
 	CustomerID   uint       `json:"customer_id"`
+	CustomerName string     `json:"customer_name"`
 	Month        int        `json:"month"`
 	Year         int        `json:"year"`
 	GeneratedAt  time.Time  `json:"generated_at"`
@@ -105,6 +106,7 @@ func (rh *ReportHandler) ListReports(c *gin.Context) {
 		response[i] = ReportListResponse{
 			ID:           r.ID,
 			CustomerID:   r.CustomerID,
+			CustomerName: r.Customer.Name,
 			Month:        r.Month,
 			Year:         r.Year,
 			GeneratedAt:  r.GeneratedAt,

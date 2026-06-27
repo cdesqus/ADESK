@@ -434,12 +434,12 @@ class ApiService {
 
   // Report endpoints
   async generateReport(customerId: string, month: number, year: number): Promise<ReportData> {
-    const response = await this.api.post<ReportData>('/reports/generate', {
+    const response = await this.api.post<any>('/reports/generate', {
       customer_id: parseInt(customerId, 10),
       month,
       year,
     });
-    return response.data;
+    return this.mapReportData(response.data);
   }
 
   async getReports(filters?: ReportFilter): Promise<PaginatedResponse<Report>> {
@@ -452,15 +452,18 @@ class ApiService {
     if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString());
 
-    const response = await this.api.get<PaginatedResponse<Report>>(
+    const response = await this.api.get<any>(
       `/reports?${params.toString()}`
     );
-    return response.data;
+    return {
+      ...response.data,
+      data: (response.data.data || []).map((r: any) => this.mapReport(r))
+    };
   }
 
   async getReport(reportId: string): Promise<ReportData> {
-    const response = await this.api.get<ReportData>(`/reports/${reportId}`);
-    return response.data;
+    const response = await this.api.get<any>(`/reports/${reportId}`);
+    return this.mapReportData(response.data);
   }
 
   async downloadReport(reportId: string, format: 'csv' | 'pdf'): Promise<Blob> {
@@ -480,6 +483,61 @@ class ApiService {
 
   async deleteReport(reportId: string): Promise<void> {
     await this.api.delete(`/reports/${reportId}`);
+  }
+
+  private mapReport(r: any): Report {
+    return {
+      id: r.id,
+      customerId: r.customer_id || r.customerId,
+      customerName: r.customer_name || r.customerName || 'Unknown',
+      month: r.month,
+      year: r.year,
+      generatedAt: r.generated_at || r.generatedAt,
+      sentAt: r.sent_at || r.sentAt,
+      sent: !!(r.sent_at || r.sentAt),
+      csvSize: r.csv_size || r.csvSize,
+      pdfSize: r.pdf_size || r.pdfSize,
+    };
+  }
+
+  private mapReportData(data: any): ReportData {
+    return {
+      id: data.id,
+      customerName: data.customer_name || data.customerName,
+      month: data.month,
+      metrics: {
+        totalTickets: data.metrics.total_tickets || data.metrics.totalTickets || 0,
+        resolvedTickets: data.metrics.resolved_tickets || data.metrics.resolvedTickets || 0,
+        openTickets: data.metrics.open_tickets || data.metrics.openTickets || 0,
+        inProgressTickets: data.metrics.in_progress_tickets || data.metrics.inProgressTickets || 0,
+        averageResolutionTime: data.metrics.average_resolution_time || data.metrics.averageResolutionTime || 0,
+        slaCompliance: data.metrics.sla_compliance || data.metrics.slaCompliance || 0,
+        byStatus: data.metrics.by_status || data.metrics.byStatus || {},
+        byPriority: data.metrics.by_priority || data.metrics.byPriority || {},
+        bySource: data.metrics.by_source || data.metrics.bySource || {},
+        engineerStats: (data.metrics.engineer_stats || data.metrics.engineerStats || []).map((e: any) => ({
+          engineerId: e.engineer_id || e.engineerId,
+          name: e.name,
+          ticketsHandled: e.tickets_handled || e.ticketsHandled || 0,
+          avgTime: e.avg_time || e.avgTime || 0,
+          resolutionRate: e.resolution_rate || e.resolutionRate || 0,
+        }))
+      },
+      ticketsList: (data.tickets_list || data.ticketsList || []).map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        createdAt: t.created_at || t.createdAt,
+        resolvedAt: t.resolved_at || t.resolvedAt,
+        ticketNumber: t.ticket_number || t.ticketNumber,
+        engineer: t.engineer,
+        source: t.source,
+        timeToResolve: t.time_to_resolve || t.timeToResolve,
+      })),
+      generatedAt: data.generated_at || data.generatedAt,
+      sentAt: data.sent_at || data.sentAt,
+    };
   }
 }
 
