@@ -322,19 +322,25 @@ func (h *EmailHandler) sendEngineerWhatsAppNotification(engineer *models.Enginee
 		return
 	}
 
-	// Check if engineer has WhatsApp number (from Engineer model or EngineerWAPhone)
-	waNumber := engineer.WhatsappNumber
+	// Get all active WhatsApp phones for the engineer from EngineerWAPhone
+	var waPhones []models.EngineerWAPhone
+	h.db.Where("engineer_id = ? AND is_active = ?", engineer.ID, true).Find(&waPhones)
 
-	// Also check EngineerWAPhone table for registered numbers
-	if waNumber == "" {
-		var waPhone models.EngineerWAPhone
-		if err := h.db.Where("engineer_id = ? AND is_active = ?", engineer.ID, true).
-			First(&waPhone).Error; err == nil {
-			waNumber = waPhone.PhoneNumber
-		}
+	notified := false
+	var phoneNumbers []string
+	
+	for _, wp := range waPhones {
+		phoneNumbers = append(phoneNumbers, wp.PhoneNumber)
+		notified = true
 	}
 
-	if waNumber == "" {
+	// Fallback to legacy WhatsappNumber if no active phones found in EngineerWAPhone
+	if !notified && engineer.WhatsappNumber != "" {
+		phoneNumbers = append(phoneNumbers, engineer.WhatsappNumber)
+		notified = true
+	}
+
+	if !notified {
 		log.Printf("[WANotify] Engineer %s has no WhatsApp number, skipping WA notification", engineer.Name)
 		return
 	}
@@ -391,13 +397,15 @@ func (h *EmailHandler) sendEngineerWhatsAppNotification(engineer *models.Enginee
 	message := fmt.Sprintf("🎫 *TICKET ASSIGNMENT*\n\nAnda ditugaskan untuk menangani tiket baru:\n\n%s *%s* — %s\n\n*Pelanggan:* %s\n*Kantor:* %s\n*Kategori:* %s\n*Prioritas:* %s\n\n*Pesan:*\n_%s_%s",
 		pEmoji, ticket.TicketNumber, ticket.Title, customerName, customerCompany, ticket.Category, ticket.Priority, descPreview, ticketURL)
 
-	// Format phone number for WhatsApp (chatId format: number@c.us)
-	chatID := formatWANumber(waNumber)
+	for _, phone := range phoneNumbers {
+		// Format phone number for WhatsApp (chatId format: number@c.us)
+		chatID := formatWANumber(phone)
 
-	if err := h.messageSender.SendMessage(session.SessionName, chatID, message); err != nil {
-		log.Printf("[WANotify] Failed to send WhatsApp notification to engineer %s (%s): %v", engineer.Name, waNumber, err)
-	} else {
-		log.Printf("[WANotify] WhatsApp notification sent to engineer %s (%s) for ticket %s", engineer.Name, waNumber, ticket.TicketNumber)
+		if err := h.messageSender.SendMessage(session.SessionName, chatID, message); err != nil {
+			log.Printf("[WANotify] Failed to send WhatsApp notification to engineer %s (%s): %v", engineer.Name, phone, err)
+		} else {
+			log.Printf("[WANotify] WhatsApp notification sent to engineer %s (%s) for ticket %s", engineer.Name, phone, ticket.TicketNumber)
+		}
 	}
 }
 

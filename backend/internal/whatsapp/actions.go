@@ -262,7 +262,17 @@ func (h *ActionHandler) HandleCreateTicket(sessionName, senderPhone, replyTo str
 
 		// Notify engineer
 		message := fmt.Sprintf("Tiket baru %s dari %s: %s", ticket.TicketNumber, senderPhone, content)
-		if engineer.WhatsappNumber != "" {
+		
+		var waPhones []models.EngineerWAPhone
+		h.db.Where("engineer_id = ? AND is_active = ?", engineer.ID, true).Find(&waPhones)
+
+		notified := false
+		for _, wp := range waPhones {
+			h.messageSender.SendMessage(sessionName, formatPhone(wp.PhoneNumber), message)
+			notified = true
+		}
+
+		if !notified && engineer.WhatsappNumber != "" {
 			h.messageSender.SendMessage(sessionName, formatPhone(engineer.WhatsappNumber), message)
 		}
 	}
@@ -439,9 +449,21 @@ func (h *ActionHandler) HandleTicketReopen(sessionName, senderPhone, replyTo str
 	// Notify engineer
 	if ticket.EngineerID != nil {
 		var engineer models.Engineer
-		if err := h.db.First(&engineer, *ticket.EngineerID).Error; err == nil && engineer.WhatsappNumber != "" {
+		if err := h.db.First(&engineer, *ticket.EngineerID).Error; err == nil {
 			engineerMsg := fmt.Sprintf("Tiket %s dibuka kembali oleh customer. Alasan: %s", ticket.TicketNumber, ticket.WhatsappFrom)
-			h.messageSender.SendMessage(sessionName, formatPhone(engineer.WhatsappNumber), engineerMsg)
+			
+			var waPhones []models.EngineerWAPhone
+			h.db.Where("engineer_id = ? AND is_active = ?", engineer.ID, true).Find(&waPhones)
+
+			notified := false
+			for _, wp := range waPhones {
+				h.messageSender.SendMessage(sessionName, formatPhone(wp.PhoneNumber), engineerMsg)
+				notified = true
+			}
+
+			if !notified && engineer.WhatsappNumber != "" {
+				h.messageSender.SendMessage(sessionName, formatPhone(engineer.WhatsappNumber), engineerMsg)
+			}
 		}
 	}
 
