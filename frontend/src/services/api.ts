@@ -435,7 +435,7 @@ class ApiService {
   // Report endpoints
   async generateReport(customerId: string, month: number, year: number): Promise<ReportData> {
     const response = await this.api.post<ReportData>('/reports/generate', {
-      customerId,
+      customer_id: parseInt(customerId, 10),
       month,
       year,
     });

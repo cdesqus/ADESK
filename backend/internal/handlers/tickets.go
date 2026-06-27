@@ -107,7 +107,7 @@ func (h *TicketHandler) GetTickets(c *gin.Context) {
 	}
 
 	var tickets []models.Ticket
-	query := h.db.Offset((pageNum-1)*limitNum).Limit(limitNum).Preload("Engineer").Preload("Updates").Preload("Customer")
+	query := h.db.Offset((pageNum-1)*limitNum).Limit(limitNum).Order("id DESC").Preload("Engineer").Preload("Updates").Preload("Customer")
 
 	if customerID != "" {
 		query = query.Where("customer_id = ?", customerID)
