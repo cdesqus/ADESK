@@ -104,10 +104,10 @@ func main() {
 	// Initialize semantic cache
 	semanticCache := ai.NewSemanticCache(redisClient, cfg.SemanticCacheTTL, cacheEnabled)
 
-	// Initialize WhatsApp components
-	aiClient := ai.NewOpenAIClient(cfg.OpenAIKey, semanticCache)
-	wahaClient := whatsapp.NewWahaClient(cfg.WahaAPIURL, cfg.WahaAPIKey)
-	messageSender := whatsapp.NewMessageSender(wahaClient, database)
+	// Prepare WhatsApp component variables for later initialization
+	var aiClient *ai.OpenAIClient
+	var wahaClient *whatsapp.WahaClient
+	var messageSender *whatsapp.MessageSender
 
 	// Read email settings from SystemSetting to override env values BEFORE creating SMTP client
 	var setting models.SystemSetting
@@ -156,9 +156,9 @@ func main() {
 	)
 
 	// Initialize WhatsApp components
-	aiClient := ai.NewOpenAIClient(cfg.OpenAIKey, semanticCache)
-	wahaClient := whatsapp.NewWahaClient(cfg.WahaAPIURL, cfg.WahaAPIKey)
-	messageSender := whatsapp.NewMessageSender(wahaClient, database)
+	aiClient = ai.NewOpenAIClient(cfg.OpenAIKey, semanticCache)
+	wahaClient = whatsapp.NewWahaClient(cfg.WahaAPIURL, cfg.WahaAPIKey)
+	messageSender = whatsapp.NewMessageSender(wahaClient, database)
 	actionHandler := whatsapp.NewActionHandler(database, messageSender, smtpClient, wahaClient)
 	whatsappHandler := handlers.NewWhatsAppHandler(database, wahaClient, messageSender, actionHandler, aiClient)
 
