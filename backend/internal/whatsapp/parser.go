@@ -41,7 +41,7 @@ func ParseMessage(body string, isDirectedToBot bool) *ParsedAction {
 	if matched, _ := regexp.MatchString(`(?i)(?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3})\s+(progress|update):`, cleanBody); matched {
 		re := regexp.MustCompile(`(?i)((?:\d{4}-\d{2}-\d{3,}|IDE-\d{4}-\d{2,3}))\s+(progress|update):\s*(.+)`)
 		matches := re.FindStringSubmatch(cleanBody)
-		if len(matches) > 3 {
+		if len(matches) > 2 {
 			return &ParsedAction{
 				ActionType: "update",
 				TicketID:   matches[1],
