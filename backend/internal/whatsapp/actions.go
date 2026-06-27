@@ -402,12 +402,18 @@ func (h *ActionHandler) HandleTicketClose(sessionName, senderPhone, replyTo stri
 	}
 
 	if ticket.EmailFrom != "" && h.smtpClient != nil {
+		var customer models.Customer
+		customerName := "Pelanggan"
+		if err := h.db.First(&customer, ticket.CustomerID).Error; err == nil && customer.Name != "" {
+			customerName = customer.Name
+		}
+
 		subject := fmt.Sprintf("[AI-DESK] Tiket %s Telah Ditutup", ticket.TicketNumber)
 		htmlBody := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6; font-size: 14px; padding: 10px;">
 	<div>
-		<p>Yth. Pelanggan,</p>
+		<p>Yth. %s,</p>
 		<p>Tiket dukungan Anda dengan ID <strong>%s</strong> telah ditutup.</p>
 		<p>Resolusi: %s</p>
 		<p>Terima kasih telah menggunakan layanan kami.</p>
@@ -415,7 +421,7 @@ func (h *ActionHandler) HandleTicketClose(sessionName, senderPhone, replyTo stri
 		<p>Salam,<br>Tim Support</p>
 	</div>
 </body>
-</html>`, ticket.TicketNumber, content)
+</html>`, customerName, ticket.TicketNumber, content)
 		go func(emailTo, subject, body string) {
 			if err := h.smtpClient.SendHTMLEmail(emailTo, "", subject, body); err != nil {
 				log.Printf("Failed to send ticket closure email to %s: %v", emailTo, err)

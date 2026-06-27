@@ -342,7 +342,7 @@ export const TicketDetailPage: React.FC = () => {
                   <div className="flex-1">
                     <p className="text-gray-900">
                       <span className="font-medium">{update.user.name}</span>
-                      {update.type === 'status_change' && ` changed status from ${update.oldValue} to ${update.newValue}`}
+                      {update.type === 'status_change' && ` changes status to closed, ${update.newValue}`}
                       {update.type === 'priority_change' && ` changed priority from ${update.oldValue} to ${update.newValue}`}
                       {update.type === 'assignment' && ` assigned to ${update.newValue}`}
                       {update.type === 'comment' && ' added a comment'}

@@ -268,6 +268,7 @@ type TicketSummary struct {
 	Status        string     `json:"status"`
 	Engineer      string     `json:"engineer"`
 	Source        string     `json:"source"`
+	Resolution    string     `json:"resolution"`
 }
 
 // ReportData contains all data for rendering a report

@@ -117,7 +117,7 @@ func ExportToCSV(report *models.ReportData) ([]byte, error) {
 	// Create Tickets Detail sheet
 	ticketsSheet := "Tickets"
 	f.NewSheet(ticketsSheet)
-	f.SetColWidth(ticketsSheet, "A", "I", 18)
+	f.SetColWidth(ticketsSheet, "A", "J", 18)
 
 	f.SetCellValue(ticketsSheet, "A1", "All Tickets")
 	f.SetCellValue(ticketsSheet, "A2", "Ticket ID")
@@ -129,6 +129,7 @@ func ExportToCSV(report *models.ReportData) ([]byte, error) {
 	f.SetCellValue(ticketsSheet, "G2", "Status")
 	f.SetCellValue(ticketsSheet, "H2", "Engineer")
 	f.SetCellValue(ticketsSheet, "I2", "Source")
+	f.SetCellValue(ticketsSheet, "J2", "Resolution")
 
 	row = 3
 	for _, ticket := range report.TicketsList {
@@ -143,6 +144,7 @@ func ExportToCSV(report *models.ReportData) ([]byte, error) {
 		f.SetCellValue(ticketsSheet, fmt.Sprintf("G%d", row), ticket.Status)
 		f.SetCellValue(ticketsSheet, fmt.Sprintf("H%d", row), ticket.Engineer)
 		f.SetCellValue(ticketsSheet, fmt.Sprintf("I%d", row), ticket.Source)
+		f.SetCellValue(ticketsSheet, fmt.Sprintf("J%d", row), ticket.Resolution)
 		row++
 	}
 

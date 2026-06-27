@@ -278,24 +278,30 @@ func (h *TicketHandler) UpdateTicket(c *gin.Context) {
 
 	// Send closing email if status changed to CLOSED and email address exists
 	if updateReq.Status == "CLOSED" && ticket.Status != "CLOSED" && ticket.EmailFrom != "" {
-		go func(emailFrom, ticketNum string) {
+		var customer models.Customer
+		customerName := "Pelanggan"
+		if err := h.db.First(&customer, ticket.CustomerID).Error; err == nil && customer.Name != "" {
+			customerName = customer.Name
+		}
+
+		go func(emailFrom, ticketNum string, cName string) {
 			subject := fmt.Sprintf("[AI-DESK] Tiket %s Telah Ditutup", ticketNum)
 			htmlBody := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; color: #333333; line-height: 1.6; font-size: 14px; padding: 10px;">
 	<div>
-		<p>Yth. Pelanggan,</p>
+		<p>Yth. %s,</p>
 		<p>Tiket dukungan Anda dengan ID <strong>%s</strong> telah dinyatakan selesai dan ditutup.</p>
 		<p>Terima kasih telah menghubungi layanan kami. Jika Anda masih memerlukan bantuan lebih lanjut, silakan buat tiket baru.</p>
 		<br>
 		<p>Salam,<br>Tim Support</p>
 	</div>
 </body>
-</html>`, ticketNum)
+</html>`, cName, ticketNum)
 			if err := h.smtpClient.SendHTMLEmail(emailFrom, "", subject, htmlBody); err != nil {
 				log.Printf("Failed to send ticket closing email to %s: %v", emailFrom, err)
 			}
-		}(ticket.EmailFrom, ticket.TicketNumber)
+		}(ticket.EmailFrom, ticket.TicketNumber, customerName)
 	}
 
 	// Reload to get updated data

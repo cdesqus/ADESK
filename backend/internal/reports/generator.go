@@ -43,6 +43,9 @@ func (rg *ReportGenerator) GenerateMonthlyReport(ctx context.Context, customerID
 	if err := rg.db.WithContext(ctx).
 		Where("customer_id = ? AND created_at >= ? AND created_at < ?", customerID, startDate, endDate).
 		Preload("Engineer").
+		Preload("Updates", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at desc")
+		}).
 		Order("created_at DESC").
 		Find(&tickets).Error; err != nil {
 		return nil, fmt.Errorf("failed to fetch tickets: %w", err)
@@ -121,6 +124,14 @@ func (rg *ReportGenerator) GenerateMonthlyReport(ctx context.Context, customerID
 			}
 		}
 
+		var resolution string
+		for _, update := range ticket.Updates {
+			if update.ActionType == "STATUS_CHANGE" && update.Message != "" {
+				resolution = update.Message
+				break
+			}
+		}
+
 		// Build ticket summary
 		summary := models.TicketSummary{
 			TicketNumber:  ticket.TicketNumber,
@@ -132,6 +143,7 @@ func (rg *ReportGenerator) GenerateMonthlyReport(ctx context.Context, customerID
 			TimeToResolve: timeToResolve,
 			Status:        ticket.Status,
 			Source:        ticket.Source,
+			Resolution:    resolution,
 		}
 		if ticket.Engineer != nil {
 			summary.Engineer = ticket.Engineer.Name
