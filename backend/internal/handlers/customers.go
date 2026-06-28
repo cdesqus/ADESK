@@ -148,12 +148,20 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 
 	// Update WAGroups association if provided
 	// We check if it's sent in the request (even if empty, they might want to clear it)
-	// But in JSON, omitted means nil, while empty array means []
 	if updateReq.WAGroups != nil {
-		// Gorm Replace will clear old ones and insert new ones
-		if err := h.db.Model(&customer).Association("WAGroups").Replace(updateReq.WAGroups); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update WA groups", "details": err.Error()})
-			return
+		// Explicitly delete old mappings for this customer to avoid unique constraint conflicts
+		h.db.Where("customer_id = ?", customerID).Delete(&models.CustomerWAGroup{})
+		
+		// Insert new mappings
+		for i := range updateReq.WAGroups {
+			updateReq.WAGroups[i].ID = 0 // ensure it's treated as a new insert
+			updateReq.WAGroups[i].CustomerID = &customer.ID
+		}
+		if len(updateReq.WAGroups) > 0 {
+			if err := h.db.Create(&updateReq.WAGroups).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update WA groups", "details": err.Error()})
+				return
+			}
 		}
 	}
 
