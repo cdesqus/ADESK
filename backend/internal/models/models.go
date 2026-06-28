@@ -282,11 +282,10 @@ type ReportData struct {
 	TicketsList   []TicketSummary  `json:"tickets_list"`
 }
 
-// CustomerWAGroup maps a WhatsApp Group ID to a Customer
 type CustomerWAGroup struct {
 	ID         uint      `gorm:"primaryKey" json:"id"`
-	CustomerID *uint     `gorm:"index" json:"customer_id"`
-	GroupID    string    `gorm:"uniqueIndex;not null" json:"group_id"` // 12036302@g.us
+	CustomerID *uint     `gorm:"uniqueIndex:idx_cust_group" json:"customer_id"`
+	GroupID    string    `gorm:"uniqueIndex:idx_cust_group;not null" json:"group_id"` // 12036302@g.us
 	GroupName  string    `json:"group_name"`
 	IsSupport  bool      `gorm:"default:false" json:"is_support"` // True for IDE-SUPPORT internal group
 	CreatedAt  time.Time `json:"created_at"`

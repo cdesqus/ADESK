@@ -100,6 +100,14 @@ func Migrate(db *gorm.DB) error {
 	// Ensure customer_id can be null for Engineers handling all customers
 	db.Exec("ALTER TABLE engineers ALTER COLUMN customer_id DROP NOT NULL;")
 	
+	// Drop old unique constraint for WhatsApp groups so they can be mapped to multiple customers
+	db.Exec("ALTER TABLE customer_wa_groups DROP CONSTRAINT IF EXISTS idx_customer_wa_groups_group_id CASCADE;")
+	db.Exec("DROP INDEX IF EXISTS idx_customer_wa_groups_group_id;")
+	db.Exec("ALTER TABLE customer_wa_groups DROP CONSTRAINT IF EXISTS uni_customer_wa_groups_group_id CASCADE;")
+	
+	// Ensure that non-support groups (is_support = false) can STILL ONLY belong to ONE customer.
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_non_support_group ON customer_wa_groups (group_id) WHERE is_support = false;")
+	
 	return nil
 }
 
