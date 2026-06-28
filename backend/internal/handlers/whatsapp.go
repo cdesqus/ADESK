@@ -373,6 +373,13 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 		return
 	}
 
+	// CRITICAL: Skip WhatsApp status updates (stories)
+	if msgEvent.From == "status@broadcast" || msgEvent.To == "status@broadcast" {
+		log.Printf("[WhatsApp] Skipping status update in session=%s", payload.Session)
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		return
+	}
+
 	// Detect if it's a group
 	isGroup := strings.HasSuffix(msgEvent.From, "@g.us")
 	msgEvent.IsGroup = isGroup
