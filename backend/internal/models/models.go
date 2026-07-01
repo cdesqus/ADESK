@@ -171,6 +171,7 @@ type WhatsAppSession struct {
 	ID           string    `gorm:"primaryKey" json:"id"`
 	SessionName  string    `gorm:"uniqueIndex;not null" json:"session_name"`
 	PhoneNumber  string    `json:"phone_number"`
+	BotLid       string    `json:"bot_lid"` // WhatsApp Linked ID (auto-discovered from outbound group messages)
 	Status       string    `gorm:"default:'PENDING'" json:"status"` // PENDING, CONNECTED, DISCONNECTED
 	QRCode       string    `gorm:"type:text" json:"qr_code"`
 	CreatedAt    time.Time `json:"created_at"`

@@ -368,6 +368,22 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 	var rawMsg map[string]interface{}
 	_ = json.Unmarshal(rawPayloadData, &rawMsg)
 	if fromMe, ok := rawMsg["fromMe"].(bool); ok && fromMe {
+		// Auto-discover the bot's LID from outbound group messages.
+		// The 'participant' field in group messages contains the bot's own LID
+		// (e.g. "178606835781652@lid"), which we need for mention detection.
+		if participant, ok := rawMsg["participant"].(string); ok && strings.HasSuffix(participant, "@lid") {
+			botLid := normalizeWhatsAppID(participant)
+			if botLid != "" {
+				var session models.WhatsAppSession
+				if err := h.db.Where("session_name = ? AND deleted_at IS NULL", payload.Session).First(&session).Error; err == nil {
+					if session.BotLid != botLid {
+						session.BotLid = botLid
+						h.db.Save(&session)
+						log.Printf("[WhatsApp] Auto-discovered bot LID=%s for session=%s", botLid, payload.Session)
+					}
+				}
+			}
+		}
 		log.Printf("[WhatsApp] Skipping own message (fromMe=true) in session=%s", payload.Session)
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		return
@@ -451,25 +467,35 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 		var session models.WhatsAppSession
 		if err := h.db.First(&session, "session_name = ?", payload.Session).Error; err == nil {
 			botNum := normalizeWhatsAppID(session.PhoneNumber)
-			botLid := ""
+			botLid := normalizeWhatsAppID(session.BotLid) // Use stored LID first (auto-discovered from outbound messages)
+
 			if wahaSession, err := h.wahaClient.CheckSessionStatus(payload.Session); err == nil {
 				if botNum == "" {
 					botNum = normalizeWhatsAppID(wahaSession.PhoneNumber)
 				}
-				// Me.ID usually returns the phone-based JID (e.g. 628xxx@c.us),
-				// NOT the LID. Try to resolve the actual LID via the WAHA LID API.
-				if botNum != "" {
-					if lidStr, err := h.wahaClient.GetLidByPhone(payload.Session, botNum); err == nil {
-						botLid = normalizeWhatsAppID(lidStr)
-					} else {
-						log.Printf("[WhatsApp] could not resolve bot LID: %v", err)
-					}
-				}
-				// Fallback: if LID resolution failed, use Me.ID (but only if it differs from botNum)
+
+				// If we don't have a stored LID yet, try to resolve it
 				if botLid == "" {
-					meID := normalizeWhatsAppID(wahaSession.Me.ID)
-					if meID != botNum {
-						botLid = meID
+					// Try WAHA LID API (requires noweb.store config)
+					if botNum != "" {
+						if lidStr, err := h.wahaClient.GetLidByPhone(payload.Session, botNum); err == nil {
+							botLid = normalizeWhatsAppID(lidStr)
+						} else {
+							log.Printf("[WhatsApp] could not resolve bot LID via API: %v", err)
+						}
+					}
+					// Fallback: use Me.ID if it differs from phone number (might be a LID)
+					if botLid == "" {
+						meID := normalizeWhatsAppID(wahaSession.Me.ID)
+						if meID != botNum && meID != "" {
+							botLid = meID
+						}
+					}
+					// Persist any newly discovered LID so we don't need to re-resolve
+					if botLid != "" {
+						session.BotLid = botLid
+						h.db.Save(&session)
+						log.Printf("[WhatsApp] Stored bot LID=%s for session=%s", botLid, payload.Session)
 					}
 				}
 			}
