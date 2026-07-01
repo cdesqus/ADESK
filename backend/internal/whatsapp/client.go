@@ -358,3 +358,41 @@ func (w *WahaClient) CheckSessionStatus(sessionName string) (Session, error) {
 
 	return session, nil
 }
+
+// GetLidByPhone resolves a phone number to a WhatsApp LID (Linked ID).
+// LIDs are anonymous identifiers WhatsApp uses instead of phone numbers in groups.
+// Endpoint: GET /api/{session}/lids/pn/{phoneNumber}
+func (w *WahaClient) GetLidByPhone(sessionName, phoneNumber string) (string, error) {
+	url := fmt.Sprintf("%s/api/%s/lids/pn/%s", w.baseURL, sessionName, phoneNumber)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	if w.apiKey != "" {
+		req.Header.Set("X-Api-Key", w.apiKey)
+	}
+
+	resp, err := w.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to get LID: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("waha api error: status %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to decode LID response: %w", err)
+	}
+
+	// The response typically has a "lid" field like "178606835781652@lid"
+	if lid, ok := result["lid"].(string); ok && lid != "" {
+		return lid, nil
+	}
+
+	return "", fmt.Errorf("lid not found in response")
+}

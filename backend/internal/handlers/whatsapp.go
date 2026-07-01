@@ -456,7 +456,22 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 				if botNum == "" {
 					botNum = normalizeWhatsAppID(wahaSession.PhoneNumber)
 				}
-				botLid = normalizeWhatsAppID(wahaSession.Me.ID)
+				// Me.ID usually returns the phone-based JID (e.g. 628xxx@c.us),
+				// NOT the LID. Try to resolve the actual LID via the WAHA LID API.
+				if botNum != "" {
+					if lidStr, err := h.wahaClient.GetLidByPhone(payload.Session, botNum); err == nil {
+						botLid = normalizeWhatsAppID(lidStr)
+					} else {
+						log.Printf("[WhatsApp] could not resolve bot LID: %v", err)
+					}
+				}
+				// Fallback: if LID resolution failed, use Me.ID (but only if it differs from botNum)
+				if botLid == "" {
+					meID := normalizeWhatsAppID(wahaSession.Me.ID)
+					if meID != botNum {
+						botLid = meID
+					}
+				}
 			}
 
 			log.Printf("[WhatsApp] bot mention candidates session=%s botNum=%s botLid=%s mentionedJids=%v", payload.Session, botNum, botLid, mentionedJids)
@@ -468,10 +483,10 @@ func (h *WhatsAppHandler) ProcessWebhook(c *gin.Context) {
 				isDirectedToBot = true
 			}
 
-			// Check if bot's number is in the explicitly mentioned JIDs from metadata
+			// Check if bot's number or LID is in the explicitly mentioned JIDs from metadata
 			if !isDirectedToBot {
 				for _, jid := range mentionedJids {
-					if jid == botNum || jid == botLid {
+					if jid == botNum || (botLid != "" && jid == botLid) {
 						isDirectedToBot = true
 						log.Printf("[WhatsApp] Directed to bot via metadata mentionedJids!")
 						break
